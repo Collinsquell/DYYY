@@ -1443,4 +1443,29 @@
     });
 }
 
-@end 
+- (void)downloadMedia:(NSURL *)url mediaType:(MediaType)mediaType completion:(void (^)(void))completion {
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config delegate:self delegateQueue:nil];
+
+    NSURLSessionDownloadTask *downloadTask = [session downloadTaskWithURL:url];
+    [downloadTask resume];
+}
+
+// 下载进度更新
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didWriteData:(int64_t)bytesWritten totalBytesWritten:(int64_t)totalBytesWritten totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
+    CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [DYYYManager showToast:[NSString stringWithFormat:@"下载进度：%.0f%%", progress * 100]];
+    });
+}
+
+// 下载完成
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
+    // 保存文件到相册或指定位置
+    [DYYYManager saveDownloadedFile:location mediaType:MediaTypeVideo];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [DYYYManager showToast:@"下载完成"];
+    });
+}
+
+@end

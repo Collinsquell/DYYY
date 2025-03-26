@@ -553,7 +553,7 @@
 %hook AWEBaseListViewController
 - (void)viewDidLayoutSubviews {
     %orig;
-    [self applyBlurEffectIfNeeded];
+    [self.applyBlurEffectIfNeeded];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -651,7 +651,7 @@
     }
 
     for (UIView *subview in view.subviews) {
-        UILabel *result = [self findCommentLabel:subview];
+        UILabel *result = [self.findCommentLabel:subview];
         if (result) {
             return result;
         }
@@ -667,7 +667,7 @@
     %orig;
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
         for (UIView *subview in self.subviews) {
-            if ([subview class] == [UIView class]) {
+            if ([subview class] == [UIView class]]) {
                 [subview setBackgroundColor:[UIColor clearColor]];
             }
         }
@@ -1124,7 +1124,7 @@
 
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenBottomBg"] || [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisEnableFullScreen"]) {
         for (UIView *subview in self.subviews) {
-            if ([subview class] == [UIView class]) {
+            if ([subview class] == [UIView class]]) {
                 BOOL hasImageView = NO;
                 for (UIView *childView in subview.subviews) {
                     if ([childView isKindOfClass:[UIImageView class]]) {
@@ -1491,7 +1491,7 @@
         }
         rightLabel.backgroundColor = [UIColor clearColor];
         [rightLabel setTextColor:[UIColor whiteColor]];
-        [rightLabel setFont:[UIFont systemFontOfSize:8]];
+        [rightLabel.setFont:[UIFont systemFontOfSize:8]];
         rightLabel.tag = 10002;
         [parentView addSubview:rightLabel];
     }
@@ -1614,7 +1614,7 @@
             }
             if ([label.text isEqualToString:@"消息"]) {
                 if (msgTitle.length > 0) {
-                    [label setText:msgTitle];
+                    [label.setText:msgTitle];
                     [self setNeedsLayout];
                 }
             }
@@ -1885,7 +1885,8 @@
         originalArray = @[];
     }
     
-    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYLongPressDownload"] && 
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYLongPress"] && 
+        ![[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYCopyTextDownload"] && 
         ![[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYCopyText"]) {
         return originalArray;
     }
@@ -1921,7 +1922,47 @@
             
             [viewModels addObject:downloadViewModel];
         }
-        
+
+ if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYLongPressDownload"]) {
+        if (self.awemeModel.awemeType != 68) {
+            // 添加“解析视频”选项
+            AWELongPressPanelBaseViewModel *parseVideoViewModel = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+            parseVideoViewModel.awemeModel = self.awemeModel;
+            parseVideoViewModel.actionType = 673; // 自定义类型
+            parseVideoViewModel.duxIconName = @"ic_boxarrowdownhigh_outlined"; // 图标
+            parseVideoViewModel.describeString = @"解析视频"; // 描述文字
+            
+            parseVideoViewModel.action = ^{
+                [DYYYManager showLoadingIndicator:@"正在解析视频..."];
+                AWEAwemeModel *awemeModel = self.awemeModel;
+                AWEVideoModel *videoModel = awemeModel.video;
+
+                if (videoModel && videoModel.playURL) {
+                    NSString *videoIdentifier = [videoModel.playURL URI];
+                    if (videoIdentifier) {
+                        [videoModel fetchHighQualityVideoURLWithIdentifier:videoIdentifier completion:^(NSURL *videoURL, NSError *error) {
+                            [DYYYManager hideLoadingIndicator];
+                            if (error) {
+                                [DYYYManager showToast:error.localizedDescription];
+                                return;
+                            }
+
+                            [DYYYManager showLoadingIndicator:@"正在下载视频..."];
+                            [DYYYManager downloadMedia:videoURL mediaType:MediaTypeVideo completion:^{
+                                [DYYYManager hideLoadingIndicator];
+                                [DYYYManager showToast:@"高清视频已保存到相册"];
+                            }];
+                        }];
+                    } else {
+                        [DYYYManager hideLoadingIndicator];
+                        [DYYYManager showToast:@"无法获取视频标识"];
+                    }
+                }
+            };
+            
+            [viewModels addObject:parseVideoViewModel];
+        }
+
         if (self.awemeModel.awemeType != 68) {
             AWELongPressPanelBaseViewModel *coverViewModel = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
             coverViewModel.awemeModel = self.awemeModel;
@@ -2120,8 +2161,8 @@
     newGroupModel.groupArr = viewModels;
     
     return [@[newGroupModel] arrayByAddingObjectsFromArray:originalArray];
+    }
 }
-
 %end
 
 %hook AWELongPressPanelTableViewController
@@ -2169,7 +2210,47 @@
             
             [viewModels addObject:downloadViewModel];
         }
-        
+
+ if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYLongPressDownload"]) {
+        if (self.awemeModel.awemeType != 68) {
+            // 添加“解析视频”选项
+            AWELongPressPanelBaseViewModel *parseVideoViewModel = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+            parseVideoViewModel.awemeModel = self.awemeModel;
+            parseVideoViewModel.actionType = 673; // 自定义类型
+            parseVideoViewModel.duxIconName = @"ic_boxarrowdownhigh_outlined"; // 图标
+            parseVideoViewModel.describeString = @"解析视频"; // 描述文字
+            
+            parseVideoViewModel.action = ^{
+                [DYYYManager showLoadingIndicator:@"正在解析视频..."];
+                AWEAwemeModel *awemeModel = self.awemeModel;
+                AWEVideoModel *videoModel = awemeModel.video;
+
+                if (videoModel && videoModel.playURL) {
+                    NSString *videoIdentifier = [videoModel.playURL URI];
+                    if (videoIdentifier) {
+                        [videoModel fetchHighQualityVideoURLWithIdentifier:videoIdentifier completion:^(NSURL *videoURL, NSError *error) {
+                            [DYYYManager hideLoadingIndicator];
+                            if (error) {
+                                [DYYYManager showToast:error.localizedDescription];
+                                return;
+                            }
+
+                            [DYYYManager showLoadingIndicator:@"正在下载视频..."];
+                            [DYYYManager downloadMedia:videoURL mediaType:MediaTypeVideo completion:^{
+                                [DYYYManager hideLoadingIndicator];
+                                [DYYYManager showToast:@"高清视频已保存到相册"];
+                            }];
+                        }];
+                    } else {
+                        [DYYYManager hideLoadingIndicator];
+                        [DYYYManager showToast:@"无法获取视频标识"];
+                    }
+                }
+            };
+            
+            [viewModels addObject:parseVideoViewModel];
+        }
+
         if (self.awemeModel.awemeType != 68) {
             AWELongPressPanelBaseViewModel *coverViewModel = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
             coverViewModel.awemeModel = self.awemeModel;
@@ -2368,7 +2449,8 @@
     newGroupModel.groupArr = viewModels;
     
     return [@[newGroupModel] arrayByAddingObjectsFromArray:originalArray];
-}
+
+    }
 
 %end
 
@@ -2455,7 +2537,7 @@ static CGFloat currentScale = 1.0;
         }
     }
 }
-
+}
 %end
 
 @interface AWEPlayInteractionDescriptionScrollView : UIScrollView
@@ -2837,6 +2919,51 @@ static BOOL isDownloadFlied = NO;
     
     return bestURL;
 }
+
+%new
+- (void)fetchHighQualityVideoURLWithIdentifier:(NSString *)videoIdentifier completion:(void (^)(NSURL *videoURL, NSError *error))completion {
+    // 构造接口地址
+    NSString *apiURLString = [NSString stringWithFormat:@"http://api.suxun.site/api/douyin?video_id=%@", videoIdentifier];
+    NSURL *apiURL = [NSURL URLWithString:apiURLString];
+
+    // 配置超时时间
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    config.timeoutIntervalForRequest = 15.0; // 设置超时时间为 15 秒
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+
+    // 发起网络请求
+    NSURLSessionDataTask *task = [session dataTaskWithURL:apiURL completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error) {
+            NSString *errorMessage = @"连接失败";
+            if (error.code == NSURLErrorTimedOut) {
+                errorMessage = @"请求超时，请稍后重试";
+            }
+            completion(nil, [NSError errorWithDomain:error.domain code:error.code userInfo:@{NSLocalizedDescriptionKey: errorMessage}]);
+            return;
+        }
+
+        // 解析返回的 JSON 数据
+        NSError *jsonError;
+        NSDictionary *jsonResponse = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+        if (jsonError) {
+            completion(nil, [NSError errorWithDomain:jsonError.domain code:jsonError.code userInfo:@{NSLocalizedDescriptionKey: @"解析失败"}]);
+            return;
+        }
+
+        // 获取高清地址
+        NSString *videoURLString = jsonResponse[@"high_quality_url"];
+        if (!videoURLString) {
+            completion(nil, [NSError errorWithDomain:@"ParserErrorDomain" code:1001 userInfo:@{NSLocalizedDescriptionKey: @"未找到高清资源"}]);
+            return;
+        }
+
+        NSURL *videoURL = [NSURL URLWithString:videoURLString];
+        completion(videoURL, nil); // 返回高清地址
+    }];
+
+    [task resume];
+}
+
 %end
 
 %hook AFDRecommendToFriendEntranceLabel
@@ -2873,4 +3000,11 @@ static BOOL isDownloadFlied = NO;
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYUserAgreementAccepted"]) {
         %init;
     }
+}
+
+%new
+- (void)downloadMediaWithURL:(NSURL *)url mediaType:(MediaType)mediaType successMessage:(NSString *)message {
+    [DYYYManager downloadMedia:url mediaType:mediaType completion:^{
+        [DYYYManager showToast:message];
+    }];
 }
