@@ -42,6 +42,13 @@ typedef NS_ENUM(NSInteger, MediaType) {
 @property (retain, nonatomic) AWEVideoModel *clipVideo;
 @end
 
+@interface AWEAwemeStatisticsModel : NSObject
+@property (nonatomic, strong) NSNumber *diggCount;
+@end
+
+@interface AWESearchAwemeExtraModel : NSObject
+@end
+
 @interface AWEAwemeModel : NSObject
 @property (nonatomic, assign,readwrite) CGFloat videoDuration;
 @property (nonatomic, strong) AWEVideoModel *video;
@@ -56,7 +63,11 @@ typedef NS_ENUM(NSInteger, MediaType) {
 @property (nonatomic, assign) BOOL isAds;
 @property (nonatomic, assign) BOOL isLive;
 @property (nonatomic, strong) NSString *shareURL;
+@property (nonatomic, strong) id hotSpotLynxCardModel;
+@property (nonatomic, copy) NSString *liveReason;
+@property (nonatomic, strong) AWEAwemeStatisticsModel *statistics;
 - (BOOL)isLive;
+- (AWESearchAwemeExtraModel *)searchExtraModel;
 @end
 
 @interface AWELongPressPanelBaseViewModel : NSObject
@@ -387,4 +398,24 @@ typedef NS_ENUM(NSInteger, MediaType) {
 @interface AWEPlayInteractionRelatedVideoView : UIView
 @property (nonatomic, strong, readonly) UIView *superview;
 @property (nonatomic, assign, getter=isHidden) BOOL hidden;
+@end
+
+// AWEVersionUpdateManager相关接口声明
+@interface AWEVersionUpdateManager : NSObject
+@property (nonatomic, strong) id networkModule;
+@property (nonatomic, strong) id badgeModule;
+@property (nonatomic, strong) id workflow;
+- (NSString *)currentVersion;
+- (void)startVersionUpdateWorkflow:(id)arg1 completion:(id)arg2;
+- (void)workflowDidFinish:(id)arg1;
++ (id)sharedInstance;
+@end
+
+@interface AWEVersionUpdateNetworkModule : NSObject
+@end
+
+@interface AWEVersionUpdateBadgeModule : NSObject
+@end
+
+@interface AWEVersionUpdateWorkflow : NSObject
 @end

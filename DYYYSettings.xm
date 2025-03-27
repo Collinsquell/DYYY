@@ -986,32 +986,74 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     
                     [videoItems addObject:item];
                 }
-                // 【系统功能】分类
-                NSMutableArray<AWESettingItemModel *> *systemItems = [NSMutableArray array];
-                NSArray *systemSettings = @[
+                // 【杂项设置】分类
+                NSMutableArray<AWESettingItemModel *> *miscellaneousItems = [NSMutableArray array];
+                NSArray *miscellaneousSettings = @[
                     @{@"identifier": @"DYYYisDarkKeyBoard", @"title": @"启用深色键盘", @"detail": @"", @"cellType": @6, @"imageName": @"ic_keyboard_outlined"},
                     @{@"identifier": @"DYYYisHideStatusbar", @"title": @"隐藏系统顶栏", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYisEnablePure", @"title": @"启用首页净化", @"detail": @"", @"cellType": @6, @"imageName": @"ic_broom_outlined"},
                     @{@"identifier": @"DYYYisEnableFullScreen", @"title": @"启用首页全屏", @"detail": @"", @"cellType": @6, @"imageName": @"ic_fullscreen_outlined_16"}
                 ];
                 
-                for (NSDictionary *dict in systemSettings) {
+                for (NSDictionary *dict in miscellaneousSettings) {
                     AWESettingItemModel *item = [self createSettingItem:dict cellTapHandlers:cellTapHandlers];
-                    [systemItems addObject:item];
+                    [miscellaneousItems addObject:item];
                 }
-                
                 // 【过滤与屏蔽】分类
                 NSMutableArray<AWESettingItemModel *> *filterItems = [NSMutableArray array];
                 NSArray *filterSettings = @[
-                    @{@"identifier": @"DYYYisSkipLive", @"title": @"启用过滤直播", @"detail": @"", @"cellType": @6, @"imageName": @"ic_video_outlined_20"},
+                    @{@"identifier": @"DYYYisSkipLive", @"title": @"首页过滤直播", @"detail": @"", @"cellType": @6, @"imageName": @"ic_video_outlined_20"},
+                    @{@"identifier": @"DYYYisSkipHotSpot", @"title": @"首页过滤热点", @"detail": @"", @"cellType": @6, @"imageName": @"ic_squaretriangletwo_outlined_20"},
+                    @{@"identifier": @"DYYYfilterLowLikes", @"title": @"首页过滤低赞", @"detail": @"0", @"cellType": @26, @"imageName": @"ic_thumbsdown_outlined_20"},
                     @{@"identifier": @"DYYYNoAds", @"title": @"启用屏蔽广告", @"detail": @"", @"cellType": @6, @"imageName": @"ic_ad_outlined_20"},
+                    @{@"identifier": @"DYYYNoUpdates", @"title": @"屏蔽检测更新", @"detail": @"", @"cellType": @6, @"imageName": @"ic_circletop_outlined"}
                 ];
                 
                 for (NSDictionary *dict in filterSettings) {
                     AWESettingItemModel *item = [self createSettingItem:dict cellTapHandlers:cellTapHandlers];
+
+                    if ([item.identifier isEqualToString:@"DYYYfilterLowLikes"]) {
+                        NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYfilterLowLikes"];
+                        item.detail = savedValue ?: @"0";
+                        item.cellTappedBlock = ^{
+                            showTextInputAlert(@"设置过滤赞数阈值", item.detail, @"填0关闭功能", ^(NSString *text) {
+                                NSScanner *scanner = [NSScanner scannerWithString:text];
+                                NSInteger value;
+                                BOOL isValidNumber = [scanner scanInteger:&value] && [scanner isAtEnd];
+                                
+                                if (isValidNumber) {
+                                    if (value < 0) value = 0;
+                                    NSString *valueString = [NSString stringWithFormat:@"%ld", (long)value];
+                                    setUserDefaults(valueString, @"DYYYfilterLowLikes");
+
+                                    item.detail = valueString;
+                                    UIViewController *topVC = topView();
+                                    if ([topVC isKindOfClass:%c(AWESettingBaseViewController)]) {
+                                        dispatch_async(dispatch_get_main_queue(), ^{
+                                            UITableView *tableView = nil;
+                                            for (UIView *subview in topVC.view.subviews) {
+                                                if ([subview isKindOfClass:[UITableView class]]) {
+                                                    tableView = (UITableView *)subview;
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            if (tableView) {
+                                                [tableView reloadData];
+                                            }
+                                        });
+                                    }
+                                } else {
+                                    DYYYAboutDialogView *errorDialog = [[DYYYAboutDialogView alloc] initWithTitle:@"输入错误" message:@"请输入有效的数字"];
+                                    [errorDialog show];
+                                }
+                            }, nil);
+                        };
+                    }
+                    
                     [filterItems addObject:item];
                 }
-                
+
                 // 【安全与确认】分类
                 NSMutableArray<AWESettingItemModel *> *securityItems = [NSMutableArray array];
                 NSArray *securitySettings = @[
@@ -1028,7 +1070,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                 NSMutableArray *sections = [NSMutableArray array];
                 [sections addObject:createSection(@"外观设置", appearanceItems)];
                 [sections addObject:createSection(@"视频播放", videoItems)];
-                [sections addObject:createSection(@"系统功能", systemItems)];
+                [sections addObject:createSection(@"杂项设置", miscellaneousItems)];
                 [sections addObject:createSection(@"过滤与屏蔽", filterItems)];
                 [sections addObject:createSection(@"二次确认", securityItems)];
                 

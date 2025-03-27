@@ -11,10 +11,20 @@
 #import "AwemeHeaders.h"
 #import "DYYYManager.h"
 #import "DYYYBottomAlertView.h"
-#import "DYYYActionSheetView.h"
 
 #define DYYY @"DYYY"
 #define tweakVersion @"2.2-2"
+
+@interface AWEUserActionSheetView : UIView
+- (instancetype)init;
+- (void)setActions:(NSArray *)actions;
+- (void)show;
+@end
+
+@interface AWEUserSheetAction : NSObject
++ (instancetype)actionWithTitle:(NSString *)title imgName:(NSString *)imgName handler:(id)handler;
++ (instancetype)actionWithTitle:(NSString *)title style:(NSUInteger)style imgName:(NSString *)imgName handler:(id)handler;
+@end
 
 %hook AWEAwemePlayVideoViewController
 
@@ -276,33 +286,6 @@
 }
 %end
 
-%hook AWEAwemeModel
-
-- (void)live_callInitWithDictyCategoryMethod:(id)arg1 {
-    if (self.currentAweme && [self.currentAweme isLive] && [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"]) {
-        return;
-    }
-    %orig;
-}
-
-+ (id)liveStreamURLJSONTransformer {
-    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
-}
-
-+ (id)relatedLiveJSONTransformer {
-    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
-}
-
-+ (id)rawModelFromLiveRoomModel:(id)arg1 {
-    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
-}
-
-+ (id)aweLiveRoom_subModelPropertyKey {
-    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"] ? nil : %orig;
-}
-
-%end
-
 %hook AWEPlayInteractionViewController
 - (void)viewDidLayoutSubviews {
     %orig;
@@ -362,13 +345,18 @@
         BOOL isImageContent = (awemeModel.awemeType == 68);
         NSString *downloadTitle = isImageContent ? @"保存图片" : @"保存视频";
         
-        // 创建操作项目数组
-        NSMutableArray *items = [NSMutableArray array];
+        // 创建AWEUserActionSheetView
+        AWEUserActionSheetView *actionSheet = [[NSClassFromString(@"AWEUserActionSheetView") alloc] init];
+        NSMutableArray *actions = [NSMutableArray array];
         
         // 添加下载选项
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleTapDownload"] || 
             ![[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDoubleTapDownload"]) {
-            [items addObject:[DYYYActionItem itemWithTitle:downloadTitle handler:^{
+            
+            AWEUserSheetAction *downloadAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                                 actionWithTitle:downloadTitle 
+                                                 imgName:nil 
+                                                 handler:^{
                 if (isImageContent) {
                     // 图片内容
                     AWEImageAlbumImageModel *currentImageModel = nil;
@@ -393,11 +381,15 @@
                         }];
                     }
                 }
-            }]];
+            }];
+            [actions addObject:downloadAction];
             
             // 如果是图集，添加下载所有图片选项
             if (isImageContent && awemeModel.albumImages.count > 1) {
-                [items addObject:[DYYYActionItem itemWithTitle:@"保存所有图片" handler:^{
+                AWEUserSheetAction *downloadAllAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                                       actionWithTitle:@"保存所有图片" 
+                                                       imgName:nil 
+                                                       handler:^{
                     NSMutableArray *imageURLs = [NSMutableArray array];
                     for (AWEImageAlbumImageModel *imageModel in awemeModel.albumImages) {
                         if (imageModel.urlList.count > 0) {
@@ -405,55 +397,77 @@
                         }
                     }
                     [DYYYManager downloadAllImages:imageURLs];
-                }]];
+                }];
+                [actions addObject:downloadAllAction];
             }
         }
         
         // 添加下载音频选项
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleTapDownloadAudio"] || 
             ![[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDoubleTapDownloadAudio"]) {
-            [items addObject:[DYYYActionItem itemWithTitle:@"保存音频" handler:^{
+            
+            AWEUserSheetAction *downloadAudioAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                                      actionWithTitle:@"保存音频" 
+                                                      imgName:nil 
+                                                      handler:^{
                 if (musicModel && musicModel.playURL && musicModel.playURL.originURLList.count > 0) {
                     NSURL *url = [NSURL URLWithString:musicModel.playURL.originURLList.firstObject];
                     [DYYYManager downloadMedia:url mediaType:MediaTypeAudio completion:nil];
                 }
-            }]];
+            }];
+            [actions addObject:downloadAudioAction];
         }
         
         // 添加复制文案选项
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleTapCopyDesc"] || 
             ![[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDoubleTapCopyDesc"]) {
-            [items addObject:[DYYYActionItem itemWithTitle:@"复制文案" handler:^{
+            
+            AWEUserSheetAction *copyTextAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                                actionWithTitle:@"复制文案" 
+                                                imgName:nil 
+                                                handler:^{
                 NSString *descText = [awemeModel valueForKey:@"descriptionString"];
                 [[UIPasteboard generalPasteboard] setString:descText];
                 [DYYYManager showToast:@"文案已复制到剪贴板"];
-            }]];
+            }];
+            [actions addObject:copyTextAction];
         }
         
         // 添加打开评论区选项
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleTapComment"] || 
             ![[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDoubleTapComment"]) {
-            [items addObject:[DYYYActionItem itemWithTitle:@"打开评论" handler:^{
+            
+            AWEUserSheetAction *openCommentAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                                   actionWithTitle:@"打开评论" 
+                                                   imgName:nil 
+                                                   handler:^{
                 [self performCommentAction];
-            }]];
+            }];
+            [actions addObject:openCommentAction];
         }
         
         // 添加点赞视频选项
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleTapLike"] || 
             ![[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDoubleTapLike"]) {
-            [items addObject:[DYYYActionItem itemWithTitle:@"点赞视频" handler:^{
+            
+            AWEUserSheetAction *likeAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                            actionWithTitle:@"点赞视频" 
+                                            imgName:nil 
+                                            handler:^{
                 %orig(arg0, arg1);
-            }]];
+            }];
+            [actions addObject:likeAction];
         }
         
         // 如果没有任何功能项被选择，则执行默认行为
-        if (items.count == 0) {
+        if (actions.count == 0) {
             %orig;
             return;
         }
         
         // 显示操作表
-        [DYYYActionSheetView showWithTitle:@"选择操作" items:items];
+        [actionSheet setActions:actions];
+        [actionSheet show];
         
         return;
     }
@@ -463,6 +477,7 @@
 }
 
 %end
+
 
 %hook AWEStoryContainerCollectionView
 - (void)layoutSubviews {
@@ -706,24 +721,60 @@
 }
 
 %end
-
 %hook AWEAwemeModel
 
 - (id)initWithDictionary:(id)arg1 error:(id *)arg2 {
     id orig = %orig;
+    
     BOOL noAds = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoAds"];
-    return (noAds && self.isAds) ? nil : orig;
+    BOOL skipLive = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"];
+    BOOL skipHotSpot = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipHotSpot"];
+    
+    BOOL shouldFilterAds = noAds && (self.hotSpotLynxCardModel || self.isAds);
+    BOOL shouldFilterRec = skipLive && [self.liveReason isEqualToString:@"rec"];
+    BOOL shouldFilterHotSpot = skipHotSpot && self.hotSpotLynxCardModel;
+
+    BOOL shouldFilterLowLikes = NO;
+
+    NSInteger filterLowLikesThreshold = [[NSUserDefaults standardUserDefaults] integerForKey:@"DYYYfilterLowLikes"];
+        
+    if (filterLowLikesThreshold > 0) {
+        AWESearchAwemeExtraModel *searchExtraModel = [self searchExtraModel];
+        if (!searchExtraModel) {
+            AWEAwemeStatisticsModel *statistics = self.statistics;
+            if (statistics && statistics.diggCount) {
+                shouldFilterLowLikes = statistics.diggCount.integerValue < filterLowLikesThreshold;
+            }
+        }
+    }
+    return (shouldFilterAds || shouldFilterRec || shouldFilterHotSpot || shouldFilterLowLikes) ? nil : orig;
 }
 
 - (id)init {
     id orig = %orig;
+    
     BOOL noAds = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoAds"];
-    return (noAds && self.isAds) ? nil : orig;
-}
-
-- (void)setIsAds:(BOOL)isAds {
-    BOOL noAds = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoAds"];
-    %orig(noAds ? isAds : NO); 
+    BOOL skipLive = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipLive"];
+    BOOL skipHotSpot = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisSkipHotSpot"];
+    
+    BOOL shouldFilterAds = noAds && (self.hotSpotLynxCardModel || self.isAds);
+    BOOL shouldFilterRec = skipLive && [self.liveReason isEqualToString:@"rec"];
+    BOOL shouldFilterHotSpot = skipHotSpot && self.hotSpotLynxCardModel;
+    
+    BOOL shouldFilterLowLikes = NO;
+    
+    NSInteger filterLowLikesThreshold = [[NSUserDefaults standardUserDefaults] integerForKey:@"DYYYfilterLowLikes"];
+        
+    if (filterLowLikesThreshold > 0) {
+        AWESearchAwemeExtraModel *searchExtraModel = [self searchExtraModel];
+        if (!searchExtraModel) {
+            AWEAwemeStatisticsModel *statistics = self.statistics;
+            if (statistics && statistics.diggCount) {
+                shouldFilterLowLikes = statistics.diggCount.integerValue < filterLowLikesThreshold;
+            }
+        }
+    }
+    return (shouldFilterAds || shouldFilterRec || shouldFilterHotSpot || shouldFilterLowLikes) ? nil : orig;
 }
 
 %end
@@ -2989,6 +3040,30 @@ static BOOL isDownloadFlied = NO;
         }
     }
     return %orig;
+}
+
+%end
+
+// 屏蔽版本更新
+%hook AWEVersionUpdateManager
+
+- (void)startVersionUpdateWorkflow:(id)arg1 completion:(id)arg2 {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoUpdates"]) {
+        if (arg2) {
+            void (^completionBlock)(void) = arg2;
+            completionBlock();
+        }
+    } else {
+        %orig;
+    }
+}
+
+- (id)workflow {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoUpdates"] ? nil : %orig;
+}
+
+- (id)badgeModule {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoUpdates"] ? nil : %orig;
 }
 
 %end
