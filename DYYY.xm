@@ -2455,8 +2455,6 @@
 
 
 static CGFloat stream_frame_y = 0;
-
-%hook AWEElementStackView
 static CGFloat right_tx = 0;
 static CGFloat left_tx = 0;
 static CGFloat currentScale = 1.0;
