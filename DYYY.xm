@@ -3000,6 +3000,8 @@ static BOOL isDownloadFlied = NO;
     }
 }
 
+%hook DYYYManager
+
 %new
 - (void)downloadMediaWithURL:(NSURL *)url mediaType:(MediaType)mediaType successMessage:(NSString *)message {
     [DYYYManager downloadMedia:url mediaType:mediaType completion:^{
@@ -3007,8 +3009,4 @@ static BOOL isDownloadFlied = NO;
     }];
 }
 
-%hook SomeClass
-- (void)someMethod {
-    %orig;
-}
 %end
