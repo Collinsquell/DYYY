@@ -2242,7 +2242,7 @@
                             }];
                         }];
                     } else {
-                        [DYYYManager hideLoadingIndicator];
+                        [DYYYManager.hideLoadingIndicator];
                         [DYYYManager showToast:@"无法获取视频标识"];
                     }
                 }
@@ -2452,7 +2452,7 @@
 
     }
 
-%end
+
 
 static CGFloat stream_frame_y = 0;
 
