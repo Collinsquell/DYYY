@@ -1,12 +1,18 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "AwemeHeaders.h"
+#import "DYYYManager.h"
 #import <MobileCoreServices/MobileCoreServices.h>
+
+// 导入所有弹窗类
+#import "DYYYCustomInputView.h"
+#import "DYYYOptionsSelectionView.h"
+#import "DYYYAboutDialogView.h"
+#import "DYYYIconOptionsDialogView.h"
 
 @class DYYYIconOptionsDialogView;
 static void showIconOptionsDialog(NSString *title, UIImage *previewImage, NSString *saveFilename, void (^onClear)(void), void (^onSelect)(void));
 
-// 添加UIImagePickerController代理类
 @interface DYYYImagePickerDelegate : NSObject <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 @property (nonatomic, copy) void (^completionBlock)(NSDictionary *info);
 @end
@@ -124,323 +130,12 @@ static UIViewController *topView(void) {
     return rootVC;
 }
 
-
-// 自定义文本输入视图
-@interface DYYYCustomInputView : UIView <UITextFieldDelegate>
-@property (nonatomic, strong) UIVisualEffectView *blurView;
-@property (nonatomic, strong) UIView *contentView;
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UITextField *inputTextField;
-@property (nonatomic, strong) UIButton *confirmButton;
-@property (nonatomic, strong) UIButton *cancelButton;
-@property (nonatomic, copy) void (^onConfirm)(NSString *text);
-@property (nonatomic, copy) void (^onCancel)(void);
-@property (nonatomic, assign) CGRect originalFrame; // 添加属性来保存原始位置
-@property (nonatomic, copy) NSString *defaultText; // 添加默认文本属性
-@property (nonatomic, copy) NSString *placeholderText; // 添加占位符文本属性
-- (instancetype)initWithTitle:(NSString *)title defaultText:(NSString *)defaultText; // 修改初始化方法
-- (instancetype)initWithTitle:(NSString *)title defaultText:(NSString *)defaultText placeholder:(NSString *)placeholder; // 新增带占位符的初始化方法
-- (instancetype)initWithTitle:(NSString *)title; // 保留原方法
-- (void)show;
-- (void)dismiss;
-@end
-
-@implementation DYYYCustomInputView
-
-- (instancetype)initWithTitle:(NSString *)title defaultText:(NSString *)defaultText placeholder:(NSString *)placeholder {
-    if (self = [super initWithFrame:UIScreen.mainScreen.bounds]) {
-        self.defaultText = defaultText;
-        self.placeholderText = placeholder;
-        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
-        
-        // 创建模糊效果视图
-        self.blurView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
-        self.blurView.frame = self.bounds;
-        self.blurView.alpha = 0.7;
-        [self addSubview:self.blurView];
-        
-        // 创建内容视图 - 改为纯白背景
-        self.contentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 180)];
-        self.contentView.center = CGPointMake(self.frame.size.width / 2, self.frame.size.height / 2);
-        self.originalFrame = self.contentView.frame; // 保存原始位置
-        self.contentView.backgroundColor = [UIColor whiteColor];
-        self.contentView.layer.cornerRadius = 12;
-        self.contentView.layer.masksToBounds = YES;
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        [self addSubview:self.contentView];
-        
-        // 主标题 - 颜色改为 #2d2f38
-        self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 20, 260, 24)];
-        self.titleLabel.text = title;
-        self.titleLabel.textColor = [UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0]; // #2d2f38
-        self.titleLabel.textAlignment = NSTextAlignmentCenter;
-        self.titleLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightMedium];
-        [self.contentView addSubview:self.titleLabel];
-        
-        // 输入框 - 背景和文字颜色修改，设置光标颜色为 #0BDF9A
-        self.inputTextField = [[UITextField alloc] initWithFrame:CGRectMake(20, 64, 260, 40)];
-        self.inputTextField.backgroundColor = [UIColor colorWithRed:245/255.0 green:245/255.0 blue:245/255.0 alpha:1.0];
-        self.inputTextField.textColor = [UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0]; // #2d2f38
-        
-        // 使用自定义占位符文本
-        NSString *placeholderString = placeholder.length > 0 ? placeholder : @"请输入内容";
-        self.inputTextField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:placeholderString 
-                                                                                    attributes:@{NSForegroundColorAttributeName: [UIColor colorWithRed:124/255.0 green:124/255.0 blue:130/255.0 alpha:1.0]}]; // #7c7c82
-        
-        self.inputTextField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 40)];
-        self.inputTextField.leftViewMode = UITextFieldViewModeAlways;
-        self.inputTextField.layer.cornerRadius = 8;
-        self.inputTextField.tintColor = [UIColor colorWithRed:11/255.0 green:223/255.0 blue:154/255.0 alpha:1.0]; // #0BDF9A
-        self.inputTextField.delegate = self;
-        self.inputTextField.returnKeyType = UIReturnKeyDone;
-        
-        // 设置默认文本
-        if (defaultText && defaultText.length > 0) {
-            self.inputTextField.text = defaultText;
-        }
-        
-        [self.contentView addSubview:self.inputTextField];
-        
-        // 添加内容和按钮之间的分割线
-        UIView *contentButtonSeparator = [[UIView alloc] initWithFrame:CGRectMake(0, 124, 300, 0.5)];
-        contentButtonSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [self.contentView addSubview:contentButtonSeparator];
-        
-        // 按钮容器
-        UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(0, 124.5, 300, 55.5)];
-        [self.contentView addSubview:buttonContainer];
-        
-        // 取消按钮 - 颜色改为 #7c7c82，去掉背景色
-        self.cancelButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.cancelButton.frame = CGRectMake(0, 0, 149.5, 55.5);
-        self.cancelButton.backgroundColor = [UIColor clearColor];
-        [self.cancelButton setTitle:@"取消" forState:UIControlStateNormal];
-        [self.cancelButton setTitleColor:[UIColor colorWithRed:124/255.0 green:124/255.0 blue:130/255.0 alpha:1.0] forState:UIControlStateNormal];  // #7c7c82
-        [self.cancelButton addTarget:self action:@selector(cancelTapped) forControlEvents:UIControlEventTouchUpInside];
-        [buttonContainer addSubview:self.cancelButton];
-        
-        // 按钮之间的分割线
-        UIView *buttonSeparator = [[UIView alloc] initWithFrame:CGRectMake(149.5, 0, 0.5, 55.5)];
-        buttonSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [buttonContainer addSubview:buttonSeparator];
-        
-        // 确认按钮 - 颜色改为 #2d2f38，去掉背景色
-        self.confirmButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.confirmButton.frame = CGRectMake(150, 0, 150, 55.5);
-        self.confirmButton.backgroundColor = [UIColor clearColor];
-        [self.confirmButton setTitle:@"确定" forState:UIControlStateNormal];
-        [self.confirmButton setTitleColor:[UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0] forState:UIControlStateNormal];  // #2d2f38
-        [self.confirmButton addTarget:self action:@selector(confirmTapped) forControlEvents:UIControlEventTouchUpInside];
-        [buttonContainer addSubview:self.confirmButton];
-        
-        // 注册键盘通知
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
-    }
-    return self;
-}
-
-// 为向后兼容添加的初始化方法
-- (instancetype)initWithTitle:(NSString *)title defaultText:(NSString *)defaultText {
-    return [self initWithTitle:title defaultText:defaultText placeholder:nil];
-}
-
-// 为了向后兼容保留原方法
-- (instancetype)initWithTitle:(NSString *)title {
-    return [self initWithTitle:title defaultText:nil placeholder:nil];
-}
-
-- (void)dealloc {
-    // 移除通知观察者
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
-}
-
-// 键盘即将显示
-- (void)keyboardWillShow:(NSNotification *)notification {
-    NSDictionary *info = [notification userInfo];
-    CGSize keyboardSize = [[info objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue].size;
-    CGFloat keyboardHeight = keyboardSize.height;
-    
-    // 计算输入框在屏幕中的位置
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGFloat screenHeight = screenBounds.size.height;
-    
-    // 计算内容视图底部到屏幕底部的距离
-    CGFloat contentViewBottom = self.contentView.frame.origin.y + self.contentView.frame.size.height;
-    CGFloat bottomDistance = screenHeight - contentViewBottom;
-    
-    // 如果距离小于键盘高度，就需要上移
-    if (bottomDistance < keyboardHeight + 20) { // 额外20点空间
-        CGFloat offsetY = keyboardHeight + 20 - bottomDistance;
-        
-        // 使用动画平滑过渡
-        [UIView animateWithDuration:0.12 animations:^{
-            CGRect newFrame = self.contentView.frame;
-            newFrame.origin.y -= offsetY;
-            self.contentView.frame = newFrame;
-        }];
-    }
-}
-
-// 键盘即将隐藏
-- (void)keyboardWillHide:(NSNotification *)notification {
-    // 恢复原始位置
-    [UIView animateWithDuration:0.1 animations:^{
-        self.contentView.frame = self.originalFrame;
-    }];
-}
-
-- (void)show {
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    [window addSubview:self];
-    
-    [UIView animateWithDuration:0.12 animations:^{
-        self.contentView.alpha = 1.0;
-        self.contentView.transform = CGAffineTransformIdentity;
-    } completion:^(BOOL finished) {
-        [self.inputTextField becomeFirstResponder];
-    }];
-}
-
-- (void)dismiss {
-    [UIView animateWithDuration:0.1 animations:^{
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        self.blurView.alpha = 0;
-    } completion:^(BOOL finished) {
-        [self removeFromSuperview];
-    }];
-}
-
-- (void)confirmTapped {
-    if (self.onConfirm) {
-        self.onConfirm(self.inputTextField.text);
-    }
-    [self dismiss];
-}
-
-- (void)cancelTapped {
-    if (self.onCancel) {
-        self.onCancel();
-    }
-    [self dismiss];
-}
-
-- (BOOL)textFieldShouldReturn:(UITextField *)textField {
-    [self confirmTapped];
-    return YES;
-}
-
-@end
-
-// 自定义选项选择视图
-@interface DYYYOptionsSelectionView : UIView
-@property (nonatomic, strong) UIVisualEffectView *blurView;
-@property (nonatomic, strong) UIView *contentView;
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UIButton *cancelButton;
-@property (nonatomic, strong) NSArray<NSString *> *options;
-@property (nonatomic, strong) NSMutableArray<UIButton *> *optionButtons;
-@property (nonatomic, copy) void (^onSelect)(NSInteger selectedIndex, NSString *selectedValue);
-- (instancetype)initWithTitle:(NSString *)title options:(NSArray<NSString *> *)options;
-- (void)show;
-- (void)dismiss;
-@end
-
-@implementation DYYYOptionsSelectionView
-
-- (instancetype)initWithTitle:(NSString *)title options:(NSArray<NSString *> *)options {
-    if (self = [super initWithFrame:UIScreen.mainScreen.bounds]) {
-        self.options = options;
-        self.optionButtons = [NSMutableArray array];
-        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
-        
-        // 创建模糊效果视图
-        self.blurView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
-        self.blurView.frame = self.bounds;
-        self.blurView.alpha = 0.7;
-        [self addSubview:self.blurView];
-        
-        // 正确计算内容视图高度 (标题高度 + 选项总高度 + 取消按钮高度 + 间距)
-        CGFloat titleHeight = 60;
-        CGFloat optionHeight = 50;
-        CGFloat separatorHeight = 0.5;
-        CGFloat bottomPadding = 0; 
-        CGFloat contentHeight = titleHeight + (options.count * optionHeight) + (options.count * separatorHeight) + optionHeight + separatorHeight + bottomPadding;
-        
-        // 内容视图 - 改为纯白背景
-        self.contentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, contentHeight)];
-        self.contentView.center = CGPointMake(self.frame.size.width / 2, self.frame.size.height / 2);
-        self.contentView.backgroundColor = [UIColor whiteColor];
-        self.contentView.layer.cornerRadius = 12;
-        self.contentView.layer.masksToBounds = YES;
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        [self addSubview:self.contentView];
-        
-        // 标题 - 颜色改为 #2d2f38
-        self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 20, 260, 30)];
-        self.titleLabel.text = title;
-        self.titleLabel.textColor = [UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0]; // #2d2f38
-        self.titleLabel.textAlignment = NSTextAlignmentCenter;
-        self.titleLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightMedium];
-        [self.contentView addSubview:self.titleLabel];
-        
-        // 添加标题和选项之间的分割线
-        UIView *titleSeparator = [[UIView alloc] initWithFrame:CGRectMake(0, titleHeight, 300, separatorHeight)];
-        titleSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [self.contentView addSubview:titleSeparator];
-        
-        // 选项按钮 - 确保垂直排列且不重叠
-        CGFloat currentY = titleHeight + separatorHeight;
-        for (NSInteger i = 0; i < options.count; i++) {
-            UIButton *optionButton = [UIButton buttonWithType:UIButtonTypeSystem];
-            optionButton.frame = CGRectMake(0, currentY, 300, optionHeight);
-            optionButton.backgroundColor = [UIColor clearColor];
-            [optionButton setTitle:options[i] forState:UIControlStateNormal];
-            [optionButton setTitleColor:[UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0] forState:UIControlStateNormal]; // #2d2f38
-            optionButton.tag = i;
-            [optionButton addTarget:self action:@selector(optionTapped:) forControlEvents:UIControlEventTouchUpInside];
-            [self.contentView addSubview:optionButton];
-            [self.optionButtons addObject:optionButton];
-            
-            currentY += optionHeight;
-            
-            // 添加选项之间的分割线
-            if (i < options.count - 1) {
-                UIView *optionSeparator = [[UIView alloc] initWithFrame:CGRectMake(0, currentY, 300, separatorHeight)];
-                optionSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-                [self.contentView addSubview:optionSeparator];
-                currentY += separatorHeight;
-            }
-        }
-        
-        // 添加选项和取消按钮之间的分割线
-        UIView *cancelSeparator = [[UIView alloc] initWithFrame:CGRectMake(0, currentY, 300, separatorHeight)];
-        cancelSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [self.contentView addSubview:cancelSeparator];
-        currentY += separatorHeight;
-        
-        // 取消按钮 - 颜色改为 #7c7c82，去掉背景色
-        self.cancelButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.cancelButton.frame = CGRectMake(0, currentY, 300, optionHeight);
-        self.cancelButton.backgroundColor = [UIColor clearColor];
-        [self.cancelButton setTitle:@"取消" forState:UIControlStateNormal];
-        [self.cancelButton setTitleColor:[UIColor colorWithRed:124/255.0 green:124/255.0 blue:130/255.0 alpha:1.0] forState:UIControlStateNormal]; // #7c7c82
-        [self.cancelButton addTarget:self action:@selector(cancelTapped) forControlEvents:UIControlEventTouchUpInside];
-        [self.contentView addSubview:self.cancelButton];
-    }
-    return self;
-}
-
 static AWESettingItemModel *createIconCustomizationItem(NSString *identifier, NSString *title, NSString *svgIconName, NSString *saveFilename) {
     AWESettingItemModel *item = [[%c(AWESettingItemModel) alloc] init];
     item.identifier = identifier;
     item.title = title;
     
-    // 检查图片是否存在，使用saveFilename而非svgIconName来检查文件
+    // 检查图片是否存在，使用saveFilename
     NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
     NSString *dyyyFolderPath = [documentsPath stringByAppendingPathComponent:@"DYYY"];
     NSString *imagePath = [dyyyFolderPath stringByAppendingPathComponent:saveFilename];
@@ -453,8 +148,6 @@ static AWESettingItemModel *createIconCustomizationItem(NSString *identifier, NS
     item.cellType = 26;
     item.colorStyle = 0;
     item.isEnable = YES;
-    
-    // 其余代码保持不变
     item.cellTappedBlock = ^{
         // 创建文件夹（如果不存在）
         if (![[NSFileManager defaultManager] fileExistsAtPath:dyyyFolderPath]) {
@@ -504,7 +197,7 @@ static AWESettingItemModel *createIconCustomizationItem(NSString *identifier, NS
             UIImagePickerController *picker = [[UIImagePickerController alloc] init];
             picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
             picker.allowsEditing = NO;
-            picker.mediaTypes = @[@"public.image"];  // 使用字符串替代kUTTypeImage
+            picker.mediaTypes = @[@"public.image"]; 
             
             // 创建并设置代理
             DYYYImagePickerDelegate *pickerDelegate = [[DYYYImagePickerDelegate alloc] init];
@@ -545,192 +238,15 @@ static AWESettingItemModel *createIconCustomizationItem(NSString *identifier, NS
                 }
             };
             
-            // 使用一个静态变量的地址作为关联对象的键
             static char kDYYYPickerDelegateKey;
-            
             picker.delegate = pickerDelegate;
-            // 正确设置关联对象
             objc_setAssociatedObject(picker, &kDYYYPickerDelegateKey, pickerDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            
             [topVC presentViewController:picker animated:YES completion:nil];
         });
     };
     
     return item;
 }
-
-- (void)show {
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    [window addSubview:self];
-    
-    [UIView animateWithDuration:0.12 animations:^{
-        self.contentView.alpha = 1.0;
-        self.contentView.transform = CGAffineTransformIdentity;
-    }];
-}
-
-- (void)dismiss {
-    [UIView animateWithDuration:0.1 animations:^{
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        self.blurView.alpha = 0;
-    } completion:^(BOOL finished) {
-        [self removeFromSuperview];
-    }];
-}
-
-- (void)optionTapped:(UIButton *)sender {
-    NSInteger index = sender.tag;
-    if (self.onSelect && index < self.options.count) {
-        self.onSelect(index, self.options[index]);
-    }
-    [self dismiss];
-}
-
-- (void)cancelTapped {
-    [self dismiss];
-}
-
-@end
-
-
-// 添加一个自定义关于弹窗类
-@interface DYYYAboutDialogView : UIView
-@property (nonatomic, strong) UIVisualEffectView *blurView;
-@property (nonatomic, strong) UIView *contentView;
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UITextView *messageTextView; 
-@property (nonatomic, strong) UIButton *confirmButton;
-@property (nonatomic, copy) void (^onConfirm)(void);
-- (instancetype)initWithTitle:(NSString *)title message:(NSString *)message;
-- (void)show;
-- (void)dismiss;
-- (void)confirmTapped;
-@end
-
-@implementation DYYYAboutDialogView
-- (instancetype)initWithTitle:(NSString *)title message:(NSString *)message {
-    if (self = [super initWithFrame:UIScreen.mainScreen.bounds]) {
-        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
-        
-        // 创建模糊效果视图
-        self.blurView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
-        self.blurView.frame = self.bounds;
-        self.blurView.alpha = 0.7;
-        [self addSubview:self.blurView];
-        
-        // 创建内容视图 - 使用纯白背景，增加高度到320以显示更多内容
-        self.contentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 320)];
-        self.contentView.center = CGPointMake(self.frame.size.width / 2, self.frame.size.height / 2);
-        self.contentView.backgroundColor = [UIColor whiteColor];
-        self.contentView.layer.cornerRadius = 12;
-        self.contentView.layer.masksToBounds = YES;
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        [self addSubview:self.contentView];
-        
-        // 标题 - 颜色使用 #2d2f38
-        self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 20, 260, 24)];
-        self.titleLabel.text = title;
-        self.titleLabel.textColor = [UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0]; // #2d2f38
-        self.titleLabel.textAlignment = NSTextAlignmentCenter;
-        self.titleLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightMedium];
-        [self.contentView addSubview:self.titleLabel];
-        
-       // 消息内容 - 使用 UITextView 代替 UILabel 以支持链接点击
-        self.messageTextView = [[UITextView alloc] initWithFrame:CGRectMake(20, 54, 260, 210)];
-        self.messageTextView.backgroundColor = [UIColor clearColor];
-        self.messageTextView.textAlignment = NSTextAlignmentCenter;
-        self.messageTextView.font = [UIFont systemFontOfSize:15];
-        self.messageTextView.editable = NO;
-        self.messageTextView.scrollEnabled = NO;
-        self.messageTextView.dataDetectorTypes = UIDataDetectorTypeLink;
-        self.messageTextView.selectable = YES;
-        
-        // 创建段落样式并设置居中对齐
-        NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc] init];
-        paragraphStyle.alignment = NSTextAlignmentCenter;
-        
-        // 创建带链接的富文本
-        NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithString:message];
-        
-        // 应用段落样式到整个文本
-        [attributedString addAttribute:NSParagraphStyleAttributeName 
-                                 value:paragraphStyle 
-                                 range:NSMakeRange(0, message.length)];
-        
-        // 设置整体颜色为 #7c7c82
-        [attributedString addAttribute:NSForegroundColorAttributeName 
-                                 value:[UIColor colorWithRed:124/255.0 green:124/255.0 blue:130/255.0 alpha:1.0] 
-                                 range:NSMakeRange(0, message.length)];
-        NSRange telegramRange = [message rangeOfString:@"Telegram@vita_app"];
-        if (telegramRange.location != NSNotFound) {
-            [attributedString addAttribute:NSLinkAttributeName 
-                                     value:@"https://t.me/vita_app" 
-                                     range:telegramRange];
-        }
-        
-        NSRange githubRange = [message rangeOfString:@"开源地址@Wtrwx"];
-        if (githubRange.location != NSNotFound) {
-            [attributedString addAttribute:NSLinkAttributeName 
-                                     value:@"https://github.com/Wtrwx/DYYY" 
-                                     range:githubRange];
-        }
-
-        NSRange huamiGithubRange = [message rangeOfString:@"开源地址@huami1314"];
-        if (huamiGithubRange.location != NSNotFound) {
-            [attributedString addAttribute:NSLinkAttributeName 
-                                     value:@"https://github.com/huami1314/DYYY" 
-                                     range:huamiGithubRange];
-        }
-        
-        self.messageTextView.attributedText = attributedString;
-        [self.contentView addSubview:self.messageTextView];
-        
-        // 添加内容和按钮之间的分割线，调整位置
-        UIView *contentButtonSeparator = [[UIView alloc] initWithFrame:CGRectMake(0, 264, 300, 0.5)];
-        contentButtonSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [self.contentView addSubview:contentButtonSeparator];
-        
-        // 确认按钮 - 颜色使用 #2d2f38，无背景色，调整位置
-        self.confirmButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.confirmButton.frame = CGRectMake(0, 264.5, 300, 55.5);
-        self.confirmButton.backgroundColor = [UIColor clearColor];
-        [self.confirmButton setTitle:@"确定" forState:UIControlStateNormal];
-        [self.confirmButton setTitleColor:[UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0] forState:UIControlStateNormal]; // #2d2f38
-        [self.confirmButton addTarget:self action:@selector(confirmTapped) forControlEvents:UIControlEventTouchUpInside];
-        [self.contentView addSubview:self.confirmButton];
-    }
-    return self;
-}
-
-- (void)show {
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    [window addSubview:self];
-    
-    [UIView animateWithDuration:0.12 animations:^{
-        self.contentView.alpha = 1.0;
-        self.contentView.transform = CGAffineTransformIdentity;
-    }];
-}
-
-- (void)dismiss {
-    [UIView animateWithDuration:0.1 animations:^{
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        self.blurView.alpha = 0;
-    } completion:^(BOOL finished) {
-        [self removeFromSuperview];
-    }];
-}
-
-- (void)confirmTapped {
-    if (self.onConfirm) {
-        self.onConfirm();
-    }
-    [self dismiss];
-}
-@end
 
 // 显示自定义关于弹窗
 static void showAboutDialog(NSString *title, NSString *message, void (^onConfirm)(void)) {
@@ -779,6 +295,15 @@ static void setUserDefaults(id object, NSString *key) {
     [[NSUserDefaults standardUserDefaults] setObject:object forKey:key];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
+
+// 显示图标选项弹窗
+static void showIconOptionsDialog(NSString *title, UIImage *previewImage, NSString *saveFilename, void (^onClear)(void), void (^onSelect)(void)) {
+    DYYYIconOptionsDialogView *optionsDialog = [[DYYYIconOptionsDialogView alloc] initWithTitle:title previewImage:previewImage];
+    optionsDialog.onClear = onClear;
+    optionsDialog.onSelect = onSelect;
+    [optionsDialog show];
+}
+
 #undef DYYY
 #define DYYY @"DYYY设置"
 
@@ -795,7 +320,6 @@ static void *kViewModelKey = &kViewModelKey;
 }
 %end
 
-// 修改方法以支持多个section
 static AWESettingBaseViewController* createSubSettingsViewController(NSString* title, NSArray* sectionsArray) {
     AWESettingBaseViewController *settingsVC = [[%c(AWESettingBaseViewController) alloc] init];
     
@@ -843,6 +367,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
         }
     }
     if (self.traceEnterFrom && !sectionExists) {
+        
         AWESettingItemModel *dyyyItem = [[%c(AWESettingItemModel) alloc] init];
         dyyyItem.identifier = @"DYYY";
         dyyyItem.title = @"DYYY";
@@ -855,7 +380,13 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
         dyyyItem.cellTappedBlock = ^{
             UIViewController *rootVC = self.controllerDelegate;
             AWESettingBaseViewController *settingsVC = [[%c(AWESettingBaseViewController) alloc] init];
-            
+            BOOL hasAgreed = getUserDefaults(@"DYYYUserAgreementAccepted");
+            if (!hasAgreed) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [DYYYManager showToast:@"当前设置无法生效，因为您还没有前往旧版界面同意使用协议。"];
+                });
+            }
+
             // 等待视图加载并使用KVO安全访问属性
             dispatch_async(dispatch_get_main_queue(), ^{
                 if ([settingsVC.view isKindOfClass:[UIView class]]) {
@@ -1002,9 +533,10 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                 // 【过滤与屏蔽】分类
                 NSMutableArray<AWESettingItemModel *> *filterItems = [NSMutableArray array];
                 NSArray *filterSettings = @[
-                    @{@"identifier": @"DYYYisSkipLive", @"title": @"首页过滤直播", @"detail": @"", @"cellType": @6, @"imageName": @"ic_video_outlined_20"},
-                    @{@"identifier": @"DYYYisSkipHotSpot", @"title": @"首页过滤热点", @"detail": @"", @"cellType": @6, @"imageName": @"ic_squaretriangletwo_outlined_20"},
-                    @{@"identifier": @"DYYYfilterLowLikes", @"title": @"首页过滤低赞", @"detail": @"0", @"cellType": @26, @"imageName": @"ic_thumbsdown_outlined_20"},
+                    @{@"identifier": @"DYYYisSkipLive", @"title": @"推荐过滤直播", @"detail": @"", @"cellType": @6, @"imageName": @"ic_video_outlined_20"},
+                    @{@"identifier": @"DYYYisSkipHotSpot", @"title": @"推荐过滤热点", @"detail": @"", @"cellType": @6, @"imageName": @"ic_squaretriangletwo_outlined_20"},
+                    @{@"identifier": @"DYYYfilterLowLikes", @"title": @"推荐过滤低赞", @"detail": @"0", @"cellType": @26, @"imageName": @"ic_thumbsdown_outlined_20"},
+                    @{@"identifier": @"DYYYfilterKeywords", @"title": @"推荐过滤文案", @"detail": @"", @"cellType": @26, @"imageName": @"ic_tag_outlined_20"},
                     @{@"identifier": @"DYYYNoAds", @"title": @"启用屏蔽广告", @"detail": @"", @"cellType": @6, @"imageName": @"ic_ad_outlined_20"},
                     @{@"identifier": @"DYYYNoUpdates", @"title": @"屏蔽检测更新", @"detail": @"", @"cellType": @6, @"imageName": @"ic_circletop_outlined"}
                 ];
@@ -1049,8 +581,32 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                                 }
                             }, nil);
                         };
+                    } else if ([item.identifier isEqualToString:@"DYYYfilterKeywords"]) {
+                        NSString *savedValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYfilterKeywords"];
+                        item.detail = savedValue ?: @"";
+                        item.cellTappedBlock = ^{
+                            showTextInputAlert(@"设置过滤关键词", item.detail, @"用半角逗号(,)分隔关键词", ^(NSString *text) {
+                                NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                setUserDefaults(trimmedText, @"DYYYfilterKeywords");
+                                item.detail = trimmedText ?: @"";
+                                UIViewController *topVC = topView();
+                                if ([topVC isKindOfClass:%c(AWESettingBaseViewController)]) {
+                                    dispatch_async(dispatch_get_main_queue(), ^{
+                                        UITableView *tableView = nil;
+                                        for (UIView *subview in topVC.view.subviews) {
+                                            if ([subview isKindOfClass:[UITableView class]]) {
+                                                tableView = (UITableView *)subview;
+                                                break;
+                                            }
+                                        }
+                                        if (tableView) {
+                                            [tableView reloadData];
+                                        }
+                                    });
+                                }
+                            }, nil);
+                        };
                     }
-                    
                     [filterItems addObject:item];
                 }
 
@@ -1114,7 +670,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     @{@"identifier": @"DYYYNicknameScale", @"title": @"昵称文案缩放", @"detail": @"不填默认", @"cellType": @26, @"imageName": @"ic_zoomin_outlined_20"},
                     @{@"identifier": @"DYYYNicknameVerticalOffset", @"title": @"昵称下移距离", @"detail": @"不填默认", @"cellType": @26, @"imageName": @"ic_pensketch_outlined_20"},
                     @{@"identifier": @"DYYYDescriptionVerticalOffset", @"title": @"文案下移距离", @"detail": @"不填默认", @"cellType": @26, @"imageName": @"ic_pensketch_outlined_20"},
-                    @{@"identifier": @"DYYYIPLeftShiftFactor", @"title": @"属地左移系数", @"detail": @"2.84", @"cellType": @26, @"imageName": @"ic_pensketch_outlined_20"},
+                    @{@"identifier": @"DYYYIPLeftShiftOffset", @"title": @"属地左移距离", @"detail": @"", @"cellType": @26, @"imageName": @"ic_pensketch_outlined_20"},
                 ];
                 
                 for (NSDictionary *dict in scaleSettings) {
@@ -1148,7 +704,6 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                 [iconItems addObject:createIconCustomizationItem(@"DYYYIconShare", @"分享图标", @"ic_share_outlined", @"share.png")];
                                 
                 // 将图标自定义section添加到sections数组
-                
                 NSMutableArray *sections = [NSMutableArray array];
                 [sections addObject:createSection(@"透明度设置", transparencyItems)];
                 [sections addObject:createSection(@"缩放与大小", scaleItems)];
@@ -1180,7 +735,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     @{@"identifier": @"DYYYisHiddenBottomBg", @"title": @"隐藏底栏背景", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYisHiddenBottomDot", @"title": @"隐藏底栏红点", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHideShopButton", @"title": @"隐藏底栏商城", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
-                    @{@"identifier": @"DYYYHideMessageButton", @"title": @"隐藏底栏信息", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
+                    @{@"identifier": @"DYYYHideMessageButton", @"title": @"隐藏底栏消息", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHideFriendsButton", @"title": @"隐藏底栏朋友", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYisHiddenJia", @"title": @"隐藏底栏加号", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"}
                 ];
@@ -1208,19 +763,29 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     [videoUiItems addObject:item];
                 }
                 
-                // 【侧边栏与消息页】分类
+                // 【侧边栏】分类
                 NSMutableArray<AWESettingItemModel *> *sidebarItems = [NSMutableArray array];
                 NSArray *sidebarSettings = @[
                     @{@"identifier": @"DYYYisHiddenSidebarDot", @"title": @"隐藏侧栏红点", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYisHiddenLeftSideBar", @"title": @"隐藏左侧边栏", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
-                    @{@"identifier": @"DYYYHidePushBanner", @"title": @"隐藏通知提示", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
-                    @{@"identifier": @"DYYYisHiddenAvatarList", @"title": @"隐藏头像列表", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
-                    @{@"identifier": @"DYYYisHiddenAvatarBubble", @"title": @"隐藏头像气泡", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"}
                 ];
                 
                 for (NSDictionary *dict in sidebarSettings) {
                     AWESettingItemModel *item = [self createSettingItem:dict];
                     [sidebarItems addObject:item];
+                }
+
+                // 【消息页与我的页】分类
+                NSMutableArray<AWESettingItemModel *> *messageAndMineItems = [NSMutableArray array];
+                NSArray *messageAndMineSettings = @[
+                    @{@"identifier": @"DYYYHidePushBanner", @"title": @"隐藏通知提示", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
+                    @{@"identifier": @"DYYYisHiddenAvatarList", @"title": @"隐藏头像列表", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
+                    @{@"identifier": @"DYYYisHiddenAvatarBubble", @"title": @"隐藏头像气泡", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
+                    @{@"identifier": @"DYYYHidePostView", @"title": @"隐藏发作品框", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"}];
+                
+                for (NSDictionary *dict in messageAndMineSettings) {
+                    AWESettingItemModel *item = [self createSettingItem:dict];
+                    [messageAndMineItems addObject:item];
                 }
 
                 // 【提示与位置信息】分类
@@ -1236,6 +801,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     @{@"identifier": @"DYYYHideGongChuang", @"title": @"隐藏共创头像", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHideHotspot", @"title": @"隐藏热点提示", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHideRecommendTips", @"title": @"隐藏推荐提示", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
+                    @{@"identifier": @"DYYYHideBottomRelated", @"title": @"隐藏底部相关", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},                    
                     @{@"identifier": @"DYYYHideShareContentView", @"title": @"隐藏分享提示", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHideAntiAddictedNotice", @"title": @"隐藏作者声明", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHideFeedAnchorContainer", @"title": @"隐藏拍摄同款", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
@@ -1244,7 +810,8 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     @{@"identifier": @"DYYYHideHisShop", @"title": @"隐藏作者店铺", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHidenCapsuleView", @"title": @"隐藏关注直播", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
                     @{@"identifier": @"DYYYHidentopbarprompt", @"title": @"隐藏顶栏横线", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
-                    @{@"identifier": @"DYYYHideTemplatePlaylet", @"title": @"隐藏短剧合集", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"}
+                    @{@"identifier": @"DYYYHideTemplatePlaylet", @"title": @"隐藏短剧合集", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"},
+                    @{@"identifier": @"DYYYHideStoryProgressSlide", @"title": @"隐藏视频滑条", @"detail": @"", @"cellType": @6, @"imageName": @"ic_eyeslash_outlined_16"}
                 ];
                 
                 for (NSDictionary *dict in infoSettings) {
@@ -1256,7 +823,8 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                 NSMutableArray *sections = [NSMutableArray array];
                 [sections addObject:createSection(@"主界面元素", mainUiItems)];
                 [sections addObject:createSection(@"视频播放界面", videoUiItems)];
-                [sections addObject:createSection(@"侧边栏与消息页", sidebarItems)];
+                [sections addObject:createSection(@"侧边栏元素", sidebarItems)];
+                [sections addObject:createSection(@"消息页与我的页", messageAndMineItems)];
                 [sections addObject:createSection(@"提示与位置信息", infoItems)];
                 
                 // 创建并推入二级设置页面
@@ -1351,6 +919,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                 NSMutableArray<AWESettingItemModel *> *downloadItems = [NSMutableArray array];
                 NSArray *downloadSettings = @[
                     @{@"identifier": @"DYYYLongPressDownload", @"title": @"长按面板保存媒体", @"detail": @"无水印保存", @"cellType": @6, @"imageName": @"ic_boxarrowdown_outlined"},
+                    @{@"identifier": @"DYYYInterfaceDownload", @"title": @"接口解析保存媒体", @"detail": @"不填关闭", @"cellType": @26, @"imageName": @"ic_cloudarrowdown_outlined_20"},
                     @{@"identifier": @"DYYYCommentLivePhotoNotWaterMark", @"title": @"移除评论实况水印", @"detail": @"", @"cellType": @6, @"imageName": @"ic_livephoto_outlined_20"},
                     @{@"identifier": @"DYYYCommentNotWaterMark", @"title": @"移除评论图片水印", @"detail": @"", @"cellType": @6, @"imageName": @"ic_removeimage_outlined_20"},
                     @{@"identifier": @"DYYYFourceDownloadEmotion", @"title": @"保存评论区表情包", @"detail": @"", @"cellType": @6, @"imageName": @"ic_emoji_outlined"}
@@ -1358,9 +927,48 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                 
                 for (NSDictionary *dict in downloadSettings) {
                     AWESettingItemModel *item = [self createSettingItem:dict];
+                    
+                    // 特殊处理接口解析保存媒体选项
+                    if ([item.identifier isEqualToString:@"DYYYInterfaceDownload"]) {
+                        // 获取已保存的接口URL
+                        NSString *savedURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYInterfaceDownload"];
+                        item.detail = savedURL.length > 0 ? savedURL : @"不填关闭";
+                        
+                        item.cellTappedBlock = ^{
+                            // 修改这里：当detail是"不填关闭"时，传入空字符串作为默认文本
+                            NSString *defaultText = [item.detail isEqualToString:@"不填关闭"] ? @"" : item.detail;
+                            showTextInputAlert(@"设置媒体解析接口", defaultText, @"解析接口以url=结尾", ^(NSString *text) {
+                                // 保存用户输入的接口URL
+                                NSString *trimmedText = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                setUserDefaults(trimmedText, @"DYYYInterfaceDownload");
+                                
+                                // 更新UI显示
+                                item.detail = trimmedText.length > 0 ? trimmedText : @"不填关闭";
+                                
+                                // 刷新设置表格
+                                UIViewController *topVC = topView();
+                                if ([topVC isKindOfClass:%c(AWESettingBaseViewController)]) {
+                                    dispatch_async(dispatch_get_main_queue(), ^{
+                                        UITableView *tableView = nil;
+                                        for (UIView *subview in topVC.view.subviews) {
+                                            if ([subview isKindOfClass:[UITableView class]]) {
+                                                tableView = (UITableView *)subview;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if (tableView) {
+                                            [tableView reloadData];
+                                        }
+                                    });
+                                }
+                            }, nil);
+                        };
+                    }
+                    
                     [downloadItems addObject:item];
                 }
-                
+
                 // 【交互增强】分类
                 NSMutableArray<AWESettingItemModel *> *interactionItems = [NSMutableArray array];
                 NSArray *interactionSettings = @[
@@ -1387,6 +995,7 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                             NSArray *doubleTapFunctions = @[
                                 @{@"identifier": @"DYYYDoubleTapDownload", @"title": @"保存视频/图片", @"detail": @"", @"cellType": @6, @"imageName": @"ic_boxarrowdown_outlined"},
                                 @{@"identifier": @"DYYYDoubleTapDownloadAudio", @"title": @"保存音频", @"detail": @"", @"cellType": @6, @"imageName": @"ic_boxarrowdown_outlined"},
+                                @{@"identifier": @"DYYYDoubleInterfaceDownload", @"title": @"接口保存", @"detail": @"", @"cellType": @6, @"imageName": @"ic_cloudarrowdown_outlined_20"},
                                 @{@"identifier": @"DYYYDoubleTapCopyDesc", @"title": @"复制文案", @"detail": @"", @"cellType": @6, @"imageName": @"ic_rectangleonrectangleup_outlined_20"},
                                 @{@"identifier": @"DYYYDoubleTapComment", @"title": @"打开评论", @"detail": @"", @"cellType": @6, @"imageName": @"ic_comment_outlined_20"},
                                 @{@"identifier": @"DYYYDoubleTapLike", @"title": @"点赞视频", @"detail": @"", @"cellType": @6, @"imageName": @"ic_heart_outlined_20"},
@@ -1444,14 +1053,44 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
                     @"Telegram@vita_app\n\n"
                     @"开源地址@Wtrwx\n\n" 
                     @"感谢Huami开源\n\n"
-                    @"开源地址@huami1314\n\n" , nil);
+                    @"开源地址@huami1314\n\n"
+                    @"感谢huami group中群友的支持赞助\n\n"
+                    @"Telegram@huami group\n\n" , nil);
             };
             [aboutItems addObject:aboutItem];
             
+            AWESettingItemModel *licenseItem = [[%c(AWESettingItemModel) alloc] init];
+            licenseItem.identifier = @"DYYYLicense";
+            licenseItem.title = @"开源协议";
+            licenseItem.detail = @"MIT License";
+            licenseItem.type = 0;
+            licenseItem.iconImageName = @"awe-settings-icon-opensource-notice";
+            licenseItem.cellType = 26;
+            licenseItem.colorStyle = 0;
+            licenseItem.isEnable = YES;
+            licenseItem.cellTappedBlock = ^{
+                showAboutDialog(@"MIT License", 
+                    @"Copyright (c) 2024 huami.\n\n"
+                    @"Permission is hereby granted, free of charge, to any person obtaining a copy "
+                    @"of this software and associated documentation files (the \"Software\"), to deal "
+                    @"in the Software without restriction, including without limitation the rights "
+                    @"to use, copy, modify, merge, publish, distribute, sublicense, and/or sell "
+                    @"copies of the Software, and to permit persons to whom the Software is "
+                    @"furnished to do so, subject to the following conditions:\n\n"
+                    @"The above copyright notice and this permission notice shall be included in all "
+                    @"copies or substantial portions of the Software.\n\n"
+                    @"THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR "
+                    @"IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, "
+                    @"FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE "
+                    @"AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER "
+                    @"LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, "
+                    @"OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE "
+                    @"SOFTWARE.", nil);
+            };
+            [aboutItems addObject:licenseItem];
             mainSection.itemArray = mainItems;
             aboutSection.itemArray = aboutItems;
             
-            // 将两个section添加到viewModel
             viewModel.sectionDataArray = @[mainSection, aboutSection];
             objc_setAssociatedObject(settingsVC, kViewModelKey, viewModel, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [rootVC.navigationController pushViewController:(UIViewController *)settingsVC animated:YES];
@@ -1481,8 +1120,6 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
     
     // 获取保存的实际值
     NSString *savedDetail = [[NSUserDefaults standardUserDefaults] objectForKey:item.identifier];
-    
-    // 设置detail展示保存的值或空字符串，保留原始提示文本用作输入框占位符
     NSString *placeholder = dict[@"detail"];
     item.detail = savedDetail ?: @"";
     
@@ -1535,158 +1172,4 @@ static AWESettingSectionModel* createSection(NSString* title, NSArray* items) {
     
     return item;
 }
-
-// 添加一个新的双按钮弹窗类，用于图标自定义操作
-@interface DYYYIconOptionsDialogView : UIView
-@property (nonatomic, strong) UIVisualEffectView *blurView;
-@property (nonatomic, strong) UIView *contentView;
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UIImageView *previewImageView;
-@property (nonatomic, strong) UIButton *clearButton;
-@property (nonatomic, strong) UIButton *selectButton;
-@property (nonatomic, copy) void (^onClear)(void);
-@property (nonatomic, copy) void (^onSelect)(void);
-- (instancetype)initWithTitle:(NSString *)title previewImage:(UIImage *)image;
-- (void)show;
-- (void)dismiss;
-@end
-
-@implementation DYYYIconOptionsDialogView
-
-- (instancetype)initWithTitle:(NSString *)title previewImage:(UIImage *)image {
-    if (self = [super initWithFrame:UIScreen.mainScreen.bounds]) {
-        self.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
-        
-        // 创建模糊效果视图
-        self.blurView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
-        self.blurView.frame = self.bounds;
-        self.blurView.alpha = 0.7;
-        [self addSubview:self.blurView];
-        
-        // 创建内容视图 - 使用纯白背景
-        CGFloat contentHeight = image ? 300 : 200; // 如果有图片预览则增加高度
-        self.contentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, contentHeight)];
-        self.contentView.center = CGPointMake(self.frame.size.width / 2, self.frame.size.height / 2);
-        self.contentView.backgroundColor = [UIColor whiteColor];
-        self.contentView.layer.cornerRadius = 12;
-        self.contentView.layer.masksToBounds = YES;
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        [self addSubview:self.contentView];
-        
-        // 标题 - 颜色使用 #2d2f38
-        self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 20, 260, 24)];
-        self.titleLabel.text = title;
-        self.titleLabel.textColor = [UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0]; // #2d2f38
-        self.titleLabel.textAlignment = NSTextAlignmentCenter;
-        self.titleLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightMedium];
-        [self.contentView addSubview:self.titleLabel];
-        
-        // 如果有图片，添加预览
-        CGFloat buttonStartY = 54;
-        if (image) {
-            CGFloat imageViewSize = 120;
-            self.previewImageView = [[UIImageView alloc] initWithFrame:CGRectMake((300 - imageViewSize) / 2, 54, imageViewSize, imageViewSize)];
-            self.previewImageView.contentMode = UIViewContentModeScaleAspectFit;
-            self.previewImageView.image = image;
-            self.previewImageView.layer.cornerRadius = 8;
-            self.previewImageView.layer.borderColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0].CGColor;
-            self.previewImageView.layer.borderWidth = 0.5;
-            self.previewImageView.clipsToBounds = YES;
-            [self.contentView addSubview:self.previewImageView];
-            buttonStartY = 184; // 调整按钮位置
-        }
-        
-        // 添加内容和按钮之间的分割线
-        UIView *contentButtonSeparator = [[UIView alloc] initWithFrame:CGRectMake(0, contentHeight - 55.5, 300, 0.5)];
-        contentButtonSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [self.contentView addSubview:contentButtonSeparator];
-        
-        // 按钮容器
-        UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(0, contentHeight - 55, 300, 55)];
-        [self.contentView addSubview:buttonContainer];
-        
-        // 清除按钮 - 颜色使用 #7c7c82
-        self.clearButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.clearButton.frame = CGRectMake(0, 0, 149.5, 55);
-        self.clearButton.backgroundColor = [UIColor clearColor];
-        [self.clearButton setTitle:@"清除" forState:UIControlStateNormal];
-        [self.clearButton setTitleColor:[UIColor colorWithRed:124/255.0 green:124/255.0 blue:130/255.0 alpha:1.0] forState:UIControlStateNormal]; // #7c7c82
-        [self.clearButton addTarget:self action:@selector(clearButtonTapped) forControlEvents:UIControlEventTouchUpInside];
-        [buttonContainer addSubview:self.clearButton];
-        
-        // 按钮之间的分割线
-        UIView *buttonSeparator = [[UIView alloc] initWithFrame:CGRectMake(149.5, 0, 0.5, 55)];
-        buttonSeparator.backgroundColor = [UIColor colorWithRed:230/255.0 green:230/255.0 blue:230/255.0 alpha:1.0];
-        [buttonContainer addSubview:buttonSeparator];
-        
-        // 选择按钮 - 颜色使用 #2d2f38
-        self.selectButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.selectButton.frame = CGRectMake(150, 0, 150, 55);
-        self.selectButton.backgroundColor = [UIColor clearColor];
-        [self.selectButton setTitle:@"选择" forState:UIControlStateNormal];
-        [self.selectButton setTitleColor:[UIColor colorWithRed:45/255.0 green:47/255.0 blue:56/255.0 alpha:1.0] forState:UIControlStateNormal]; // #2d2f38
-        [self.selectButton addTarget:self action:@selector(selectButtonTapped) forControlEvents:UIControlEventTouchUpInside];
-        [buttonContainer addSubview:self.selectButton];
-        
-        // 添加点击空白处关闭的手势
-        UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleBackgroundTap:)];
-        [self addGestureRecognizer:tapGesture];
-    }
-    return self;
-}
-
-// 处理背景点击事件
-- (void)handleBackgroundTap:(UITapGestureRecognizer *)gesture {
-    CGPoint location = [gesture locationInView:self];
-    if (!CGRectContainsPoint(self.contentView.frame, location)) {
-        [self dismiss];
-    }
-}
-
-- (void)show {
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    [window addSubview:self];
-    
-    [UIView animateWithDuration:0.12 animations:^{
-        self.contentView.alpha = 1.0;
-        self.contentView.transform = CGAffineTransformIdentity;
-    }];
-}
-
-- (void)dismiss {
-    [UIView animateWithDuration:0.1 animations:^{
-        self.contentView.alpha = 0;
-        self.contentView.transform = CGAffineTransformMakeScale(0.8, 0.8);
-        self.blurView.alpha = 0;
-    } completion:^(BOOL finished) {
-        [self removeFromSuperview];
-    }];
-}
-
-- (void)clearButtonTapped {
-    if (self.onClear) {
-        self.onClear();
-    }
-    [self dismiss];
-}
-
-- (void)selectButtonTapped {
-    if (self.onSelect) {
-        self.onSelect();
-    }
-    [self dismiss];
-}
-
-@end
-
-// 显示图标选项弹窗
-static void showIconOptionsDialog(NSString *title, UIImage *previewImage, NSString *saveFilename, void (^onClear)(void), void (^onSelect)(void)) {
-    DYYYIconOptionsDialogView *optionsDialog = [[DYYYIconOptionsDialogView alloc] initWithTitle:title previewImage:previewImage];
-    optionsDialog.onClear = onClear;
-    optionsDialog.onSelect = onSelect;
-    [optionsDialog show];
-}
-
 %end
-

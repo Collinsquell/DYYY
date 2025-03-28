@@ -15,6 +15,11 @@
 #define DYYY @"DYYY"
 #define tweakVersion @"2.2-2"
 
+// 添加DYYYManager的类别声明
+@interface DYYYManager (API)
++ (void)parseAndDownloadVideoWithShareLink:(NSString *)shareLink apiKey:(NSString *)apiKey;
+@end
+
 @interface AWEUserActionSheetView : UIView
 - (instancetype)init;
 - (void)setActions:(NSArray *)actions;
@@ -280,9 +285,20 @@
     
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenEntry"]) {
         self.hidden = YES;
+	
     }
 
     %orig(center);
+}
+
+- (void)setHidden:(BOOL)hidden {
+    BOOL shouldHide = [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYisHiddenEntry"];
+    
+    if (shouldHide) {
+        %orig(shouldHide);
+    } else {
+        %orig(hidden);
+    }
 }
 %end
 
@@ -418,6 +434,28 @@
             [actions addObject:downloadAudioAction];
         }
         
+
+        // 添加接口保存选项
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleInterfaceDownload"]) {
+            NSString *apiKey = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYInterfaceDownload"];
+            if (apiKey.length > 0) {
+                AWEUserSheetAction *apiDownloadAction = [NSClassFromString(@"AWEUserSheetAction") 
+                                                       actionWithTitle:@"接口保存" 
+                                                       imgName:nil 
+                                                       handler:^{
+                    NSString *shareLink = [awemeModel valueForKey:@"shareURL"];
+                    if (shareLink.length == 0) {
+                        [DYYYManager showToast:@"无法获取分享链接"];
+                        return;
+                    }
+                    
+                    // 使用封装的方法进行解析下载
+                    [DYYYManager parseAndDownloadVideoWithShareLink:shareLink apiKey:apiKey];
+                }];
+                [actions addObject:apiDownloadAction];
+            }
+        }
+
         // 添加复制文案选项
         if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYDoubleTapCopyDesc"] || 
             ![[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYDoubleTapCopyDesc"]) {
@@ -721,8 +759,8 @@
 }
 
 %end
-%hook AWEAwemeModel
 
+%hook AWEAwemeModel
 - (id)initWithDictionary:(id)arg1 error:(id *)arg2 {
     id orig = %orig;
     
@@ -735,19 +773,64 @@
     BOOL shouldFilterHotSpot = skipHotSpot && self.hotSpotLynxCardModel;
 
     BOOL shouldFilterLowLikes = NO;
+    BOOL shouldFilterKeywords = NO;
+    
+    // 获取用户设置的需要过滤的关键词
+    NSString *filterKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYfilterKeywords"];
+    NSArray *keywordsList = nil;
+    
+    if (filterKeywords.length > 0) {
+        keywordsList = [filterKeywords componentsSeparatedByString:@","];
+    }
 
     NSInteger filterLowLikesThreshold = [[NSUserDefaults standardUserDefaults] integerForKey:@"DYYYfilterLowLikes"];
         
-    if (filterLowLikesThreshold > 0) {
-        AWESearchAwemeExtraModel *searchExtraModel = [self searchExtraModel];
-        if (!searchExtraModel) {
-            AWEAwemeStatisticsModel *statistics = self.statistics;
-            if (statistics && statistics.diggCount) {
-                shouldFilterLowLikes = statistics.diggCount.integerValue < filterLowLikesThreshold;
+    // 只有当shareRecExtra不为空时才过滤点赞量低的视频和关键词
+    if (self.shareRecExtra && ![self.shareRecExtra isEqual:@""]) {
+        // 过滤低点赞量视频
+        if (filterLowLikesThreshold > 0) {
+            AWESearchAwemeExtraModel *searchExtraModel = [self searchExtraModel];
+            if (!searchExtraModel) {
+                AWEAwemeStatisticsModel *statistics = self.statistics;
+                if (statistics && statistics.diggCount) {
+                    shouldFilterLowLikes = statistics.diggCount.integerValue < filterLowLikesThreshold;
+                }
+            }
+        }
+        
+        // 过滤包含特定关键词的视频
+        if (keywordsList.count > 0) {
+            // 检查视频标题
+            if (self.itemTitle.length > 0) {
+                for (NSString *keyword in keywordsList) {
+                    NSString *trimmedKeyword = [keyword stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    if (trimmedKeyword.length > 0 && [self.itemTitle containsString:trimmedKeyword]) {
+                        shouldFilterKeywords = YES;
+                        break;
+                    }
+                }
+            }
+            
+            // 如果标题中没有关键词，检查标签(textExtras)
+            if (!shouldFilterKeywords && self.textExtras.count > 0) {
+                for (AWEAwemeTextExtraModel *textExtra in self.textExtras) {
+                    NSString *hashtagName = textExtra.hashtagName;
+                    if (hashtagName.length > 0) {
+                        for (NSString *keyword in keywordsList) {
+                            NSString *trimmedKeyword = [keyword stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                            if (trimmedKeyword.length > 0 && [hashtagName containsString:trimmedKeyword]) {
+                                shouldFilterKeywords = YES;
+                                break;
+                            }
+                        }
+                        if (shouldFilterKeywords) break;
+                    }
+                }
             }
         }
     }
-    return (shouldFilterAds || shouldFilterRec || shouldFilterHotSpot || shouldFilterLowLikes) ? nil : orig;
+    
+    return (shouldFilterAds || shouldFilterRec || shouldFilterHotSpot || shouldFilterLowLikes || shouldFilterKeywords) ? nil : orig;
 }
 
 - (id)init {
@@ -762,21 +845,65 @@
     BOOL shouldFilterHotSpot = skipHotSpot && self.hotSpotLynxCardModel;
     
     BOOL shouldFilterLowLikes = NO;
+    BOOL shouldFilterKeywords = NO;
+    
+    // 获取用户设置的需要过滤的关键词
+    NSString *filterKeywords = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYfilterKeywords"];
+    NSArray *keywordsList = nil;
+    
+    if (filterKeywords.length > 0) {
+        keywordsList = [filterKeywords componentsSeparatedByString:@","];
+    }
     
     NSInteger filterLowLikesThreshold = [[NSUserDefaults standardUserDefaults] integerForKey:@"DYYYfilterLowLikes"];
         
-    if (filterLowLikesThreshold > 0) {
-        AWESearchAwemeExtraModel *searchExtraModel = [self searchExtraModel];
-        if (!searchExtraModel) {
-            AWEAwemeStatisticsModel *statistics = self.statistics;
-            if (statistics && statistics.diggCount) {
-                shouldFilterLowLikes = statistics.diggCount.integerValue < filterLowLikesThreshold;
+    // 只有当shareRecExtra不为空时才过滤点赞量低的视频和关键词
+    if (self.shareRecExtra && ![self.shareRecExtra isEqual:@""]) {
+        // 过滤低点赞量视频
+        if (filterLowLikesThreshold > 0) {
+            AWESearchAwemeExtraModel *searchExtraModel = [self searchExtraModel];
+            if (!searchExtraModel) {
+                AWEAwemeStatisticsModel *statistics = self.statistics;
+                if (statistics && statistics.diggCount) {
+                    shouldFilterLowLikes = statistics.diggCount.integerValue < filterLowLikesThreshold;
+                }
+            }
+        }
+        
+        // 过滤包含特定关键词的视频
+        if (keywordsList.count > 0) {
+            // 检查视频标题
+            if (self.itemTitle.length > 0) {
+                for (NSString *keyword in keywordsList) {
+                    NSString *trimmedKeyword = [keyword stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    if (trimmedKeyword.length > 0 && [self.itemTitle containsString:trimmedKeyword]) {
+                        shouldFilterKeywords = YES;
+                        break;
+                    }
+                }
+            }
+            
+            // 如果标题中没有关键词，检查标签(textExtras)
+            if (!shouldFilterKeywords && self.textExtras.count > 0) {
+                for (AWEAwemeTextExtraModel *textExtra in self.textExtras) {
+                    NSString *hashtagName = textExtra.hashtagName;
+                    if (hashtagName.length > 0) {
+                        for (NSString *keyword in keywordsList) {
+                            NSString *trimmedKeyword = [keyword stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                            if (trimmedKeyword.length > 0 && [hashtagName containsString:trimmedKeyword]) {
+                                shouldFilterKeywords = YES;
+                                break;
+                            }
+                        }
+                        if (shouldFilterKeywords) break;
+                    }
+                }
             }
         }
     }
-    return (shouldFilterAds || shouldFilterRec || shouldFilterHotSpot || shouldFilterLowLikes) ? nil : orig;
+    
+    return (shouldFilterAds || shouldFilterRec || shouldFilterHotSpot || shouldFilterLowLikes || shouldFilterKeywords) ? nil : orig;
 }
-
 %end
 
 // 拦截开屏广告
@@ -950,13 +1077,19 @@
 
 %end
 
-//隐藏作者声明
 %hook AWEAntiAddictedNoticeBarView
 
 - (void)layoutSubviews {
     %orig;
 
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAntiAddictedNotice"]) {
+    // 先检查 tips 属性是否存在且不为空
+    id tipsValue = [self valueForKey:@"tips"];
+    BOOL hasTips = (tipsValue != nil && 
+                   [tipsValue isKindOfClass:[NSString class]] && 
+                   [(NSString *)tipsValue length] > 0);
+    
+    // 只有当 tips 不为空且用户启用了隐藏选项时才隐藏视图
+    if (hasTips && [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAntiAddictedNotice"]) {
         UIView *parentView = self.superview;
         if (parentView) {
             parentView.hidden = YES;
@@ -989,7 +1122,20 @@
 //移除下面推荐框黑条
 %hook AWEPlayInteractionRelatedVideoView
 - (void)layoutSubviews {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideAntiAddictedNotice"]) {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideBottomRelated"]) {
+        if ([self respondsToSelector:@selector(removeFromSuperview)]) {
+            [self removeFromSuperview]; 
+        }
+        self.hidden = YES;
+        return; 
+    }
+    %orig;
+}
+%end
+
+%hook AWEFeedRelatedSearchTipView
+- (void)layoutSubviews {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideBottomRelated"]) {
         if ([self respondsToSelector:@selector(removeFromSuperview)]) {
             [self removeFromSuperview]; 
         }
@@ -1797,19 +1943,19 @@
             label.layer.anchorPoint = CGPointMake(0, label.layer.anchorPoint.y);
             label.layer.position = CGPointMake(originalFrame.origin.x, label.layer.position.y);
             
-            // 添加IP属地左移系数支持
-            NSString *leftShiftFactorValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYIPLeftShiftFactor"];
-            CGFloat leftShiftFactor = 2.84; // 默认值
-            if (leftShiftFactorValue.length > 0) {
-                CGFloat customShiftFactor = [leftShiftFactorValue floatValue];
-                if (customShiftFactor > 0) {
-                    leftShiftFactor = customShiftFactor;
+            // 使用距离值进行IP属地位置偏移
+            NSString *leftOffsetValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYIPLeftShiftOffset"];
+            CGFloat leftOffset = 100.0; 
+
+            if (leftOffsetValue.length > 0) {
+                CGFloat customOffset = [leftOffsetValue floatValue];
+                if (customOffset != 0) {
+                    leftOffset = customOffset;
                 }
             }
-            
-            CGFloat halfScreenWidth = [UIScreen mainScreen].bounds.size.width / leftShiftFactor;
+
             CGAffineTransform scaleTransform = CGAffineTransformMakeScale(ipScale, ipScale);
-            CGAffineTransform translationTransform = CGAffineTransformMakeTranslation(-halfScreenWidth, 0);
+            CGAffineTransform translationTransform = CGAffineTransformMakeTranslation(-leftOffset, 0);
             label.transform = CGAffineTransformConcat(scaleTransform, translationTransform);
            
             label.font = originalFont;
@@ -1902,6 +2048,24 @@
     %orig;
 
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideTemplatePlaylet"]) {
+        // 找到父视图并隐藏
+        UIView *parentView = self.superview;
+        if (parentView) {
+            parentView.hidden = YES;
+        } else {
+            self.hidden = YES;
+        }
+    }
+}
+
+%end
+
+%hook AWEStoryProgressSlideView
+
+- (void)layoutSubviews {
+    %orig;
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHideStoryProgressSlide"]) {
         // 找到父视图并隐藏
         UIView *parentView = self.superview;
         if (parentView) {
@@ -2206,11 +2370,36 @@
         };
         
         [viewModels addObject:copyShareLink];
-    
+
     }
-    
+
+    // 添加接口保存功能
+    NSString *apiKey = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYInterfaceDownload"];
+    if (apiKey.length > 0) {
+        AWELongPressPanelBaseViewModel *apiDownload = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+        apiDownload.awemeModel = self.awemeModel;
+        apiDownload.actionType = 673;
+        apiDownload.duxIconName = @"ic_cloudarrowdown_outlined_20";
+        apiDownload.describeString = @"接口保存视频";
+            
+        apiDownload.action = ^{
+            NSString *shareLink = [self.awemeModel valueForKey:@"shareURL"];
+            if (shareLink.length == 0) {
+                [DYYYManager showToast:@"无法获取分享链接"];
+                return;
+            }
+            
+            // 使用封装的方法进行解析下载
+            [DYYYManager parseAndDownloadVideoWithShareLink:shareLink apiKey:apiKey];
+                
+            AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
+            [panelManager dismissWithAnimation:YES completion:nil];
+         };
+            
+        [viewModels addObject:apiDownload];
+    }
+
     newGroupModel.groupArr = viewModels;
-    
     return [@[newGroupModel] arrayByAddingObjectsFromArray:originalArray];
     }
 }
@@ -2496,7 +2685,33 @@
         [viewModels addObject:copyShareLink];
     
     }
-    
+
+    // 添加接口保存功能
+    NSString *apiKey = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYInterfaceDownload"];
+    if (apiKey.length > 0) {
+        AWELongPressPanelBaseViewModel *apiDownload = [[%c(AWELongPressPanelBaseViewModel) alloc] init];
+        apiDownload.awemeModel = self.awemeModel;
+        apiDownload.actionType = 673;
+        apiDownload.duxIconName = @"ic_cloudarrowdown_outlined_20";
+        apiDownload.describeString = @"接口保存视频";
+            
+        apiDownload.action = ^{
+            NSString *shareLink = [self.awemeModel valueForKey:@"shareURL"];
+            if (shareLink.length == 0) {
+                [DYYYManager showToast:@"无法获取分享链接"];
+                return;
+            }
+            
+            // 使用封装的方法进行解析下载
+            [DYYYManager parseAndDownloadVideoWithShareLink:shareLink apiKey:apiKey];
+                
+            AWELongPressPanelManager *panelManager = [%c(AWELongPressPanelManager) shareInstance];
+            [panelManager dismissWithAnimation:YES completion:nil];
+         };
+            
+        [viewModels addObject:apiDownload];
+    }
+
     newGroupModel.groupArr = viewModels;
     
     return [@[newGroupModel] arrayByAddingObjectsFromArray:originalArray];
@@ -3064,6 +3279,84 @@ static BOOL isDownloadFlied = NO;
 
 - (id)badgeModule {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYNoUpdates"] ? nil : %orig;
+}
+
+%end
+
+//隐藏自己无公开作品的视图
+%hook AWEProfileMixCollectionViewCell
+- (void)layoutSubviews {
+    %orig;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHidePostView"]) {
+        self.hidden = YES;
+    }
+}
+%end
+
+%hook AWEProfileTaskCardStyleListCollectionViewCell
+- (void)layoutSubviews {
+    %orig;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"DYYYHidePostView"]) {
+        self.hidden = YES;
+    }
+}
+%end
+
+%hook DYYYManager
+
+%new
++ (void)parseAndDownloadVideoWithShareLink:(NSString *)shareLink apiKey:(NSString *)apiKey {
+    if (shareLink.length == 0 || apiKey.length == 0) {
+        [self showToast:@"分享链接或API密钥无效"];
+        return;
+    }
+    
+    // 拼接API请求URL
+    NSString *apiUrl = [NSString stringWithFormat:@"%@%@", apiKey, [shareLink stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]]];
+    
+    [self showToast:@"正在通过接口解析..."];
+    
+    NSURL *url = [NSURL URLWithString:apiUrl];
+    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (error) {
+                [self showToast:[NSString stringWithFormat:@"接口请求失败: %@", error.localizedDescription]];
+                return;
+            }
+            
+            NSError *jsonError;
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+            
+            if (jsonError) {
+                [self showToast:@"解析接口返回数据失败"];
+                return;
+            }
+            
+            NSInteger code = [json[@"code"] integerValue];
+            if (code != 200) {
+                [self showToast:[NSString stringWithFormat:@"接口返回错误: %@", json[@"msg"] ?: @"未知错误"]];
+                return;
+            }
+            
+            NSDictionary *data = json[@"data"];
+            NSString *videoUrl = data[@"video"] ?: data[@"video_url"] ?: data[@"url"];
+            
+            if (videoUrl.length == 0) {
+                [self showToast:@"接口未返回有效的视频链接"];
+                return;
+            }
+            
+            NSURL *videoDownloadUrl = [NSURL URLWithString:videoUrl];
+            [self downloadMedia:videoDownloadUrl mediaType:MediaTypeVideo completion:^{
+                [self showToast:@"视频已保存到相册"];
+            }];
+        });
+    }];
+    
+    [dataTask resume];
 }
 
 %end
