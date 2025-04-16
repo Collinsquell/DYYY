@@ -422,7 +422,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     
     UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 0, headerView.bounds.size.width - 50, 44)];
     titleLabel.text = [self tableView:tableView titleForHeaderInSection:section];
-    titleLabel.textColor = [UIColor whiteColor];
+    titleLabel.textColor = [UIColor blackColor];
     titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
     [headerView addSubview:titleLabel];
     
@@ -473,7 +473,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     }
     
     cell.textLabel.text = item.title;
-    cell.textLabel.textColor = [UIColor whiteColor];
+    cell.textLabel.textColor = [UIColor blackColor];
     cell.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
     
     cell.backgroundView = nil;
@@ -503,7 +503,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
         textField.text = [[NSUserDefaults standardUserDefaults] objectForKey:item.key];
         textField.textAlignment = NSTextAlignmentRight;
         textField.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
-        textField.textColor = [UIColor whiteColor];
+        textField.textColor = [UIColor blackColor];
         
         [textField addTarget:self action:@selector(textFieldDidChange:) forControlEvents:UIControlEventEditingDidEnd];
         textField.tag = indexPath.section * 1000 + indexPath.row;
@@ -513,7 +513,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 
         UITextField *speedField = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 80, 30)];
         speedField.text = [NSString stringWithFormat:@"%.2f", [[NSUserDefaults standardUserDefaults] floatForKey:@"DYYYDefaultSpeed"]];
-        speedField.textColor = [UIColor whiteColor];
+        speedField.textColor = [UIColor blackColor];
         speedField.borderStyle = UITextBorderStyleNone;
         speedField.backgroundColor = [UIColor clearColor];
         speedField.textAlignment = NSTextAlignmentRight;
