@@ -93,48 +93,47 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupAppearance {
-    if (self.navigationController) {
-        self.navigationController.navigationBar.prefersLargeTitles = YES;
-        self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
-        self.navigationController.navigationBar.translucent = YES;
-        self.navigationController.navigationBar.backgroundColor = [UIColor clearColor];
-        self.navigationController.navigationBar.tintColor = [UIColor systemBlueColor];
-    }
-}
+    self.navigationController.navigationBar.barTintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.5]; // 设置导航栏背景为白色，透明度50%
+    self.navigationController.navigationBar.tintColor = [UIColor blackColor]; // 设置导航栏按钮颜色为黑色
+    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor blackColor]}; // 设置大标题字体颜色为黑色
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationController.navigationBar.prefersLargeTitles = YES;
 
-- (void)setupBackgroundColorView {
-    self.backgroundColorView = [[UIView alloc] initWithFrame:self.view.bounds];
-    self.backgroundColorView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYBackgroundColor"];
-    UIColor *savedColor = colorData ? [NSKeyedUnarchiver unarchiveObjectWithData:colorData] : [UIColor systemBackgroundColor];
-    self.backgroundColorView.backgroundColor = savedColor;
-    [self.view insertSubview:self.backgroundColorView atIndex:0];
+    // 添加导航栏分割线
+    UIView *separator = [[UIView alloc] initWithFrame:CGRectMake(0, self.navigationController.navigationBar.frame.size.height - 0.5, self.navigationController.navigationBar.frame.size.width, 0.5)];
+    separator.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.5]; // 设置分割线为灰色，透明度50%
+    separator.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
+    [self.navigationController.navigationBar addSubview:separator];
 }
 
 - (void)setupBlurEffect {
-    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial];
+    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight]; // 使用浅色毛玻璃效果
     self.blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
     self.blurEffectView.frame = self.view.bounds;
     self.blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.blurEffectView.alpha = 0.5;
-    [self.view insertSubview:self.blurEffectView aboveSubview:self.backgroundColorView];
+    [self.view addSubview:self.blurEffectView];
     
-    if (self.tableView) {
-        @try {
-            [self.tableView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
-            self.isKVOAdded = YES;
-            NSLog(@"DYYYSettingViewController KVO added");
-        } @catch (NSException *exception) {
-            NSLog(@"DYYYSettingViewController KVO addition failed: %@", exception);
-        }
-    }
+    UIVibrancyEffect *vibrancyEffect = [UIVibrancyEffect effectForBlurEffect:blurEffect];
+    self.vibrancyEffectView = [[UIVisualEffectView alloc] initWithEffect:vibrancyEffect];
+    self.vibrancyEffectView.frame = self.blurEffectView.bounds;
+    self.vibrancyEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.blurEffectView.contentView addSubview:self.vibrancyEffectView];
+    
+    UIView *overlayView = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlayView.backgroundColor = [UIColor colorWithWhite:1 alpha:0.3];
+    overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:overlayView];
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
-    if ([keyPath isEqualToString:@"contentOffset"] && object == self.tableView) {
-        CGFloat offset = self.tableView.contentOffset.y;
-        self.blurEffectView.alpha = MIN(1.0, MAX(0.5, offset / 200.0));
-    }
+- (void)setupTableView {
+    self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleInsetGrouped];
+    self.tableView.delegate = self;
+    self.tableView.dataSource = self;
+    self.tableView.backgroundColor = [UIColor clearColor];
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.contentInset = UIEdgeInsetsMake(20, 0, 0, 0);
+    self.tableView.sectionHeaderTopPadding = 0;
+    [self.view addSubview:self.tableView];
 }
 
 - (void)setupSettingItems {
