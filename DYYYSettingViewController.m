@@ -93,66 +93,48 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupAppearance {
-    BOOL isDarkMode = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    if (self.navigationController) {
+        self.navigationController.navigationBar.prefersLargeTitles = YES;
+        self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+        self.navigationController.navigationBar.translucent = YES;
+        self.navigationController.navigationBar.backgroundColor = [UIColor clearColor];
+        self.navigationController.navigationBar.tintColor = [UIColor systemBlueColor];
+    }
+}
 
-    // 设置导航栏背景颜色
-    self.navigationController.navigationBar.barTintColor = isDarkMode ? [UIColor clearColor] : [UIColor whiteColor];
-    
-    // 设置导航栏控件颜色
-    self.navigationController.navigationBar.tintColor = isDarkMode ? [UIColor whiteColor] : [UIColor blackColor];
-    
-    // 设置导航栏标题颜色
-    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: isDarkMode ? [UIColor whiteColor] : [UIColor blackColor]};
-    
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
+- (void)setupBackgroundColorView {
+    self.backgroundColorView = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.backgroundColorView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"DYYYBackgroundColor"];
+    UIColor *savedColor = colorData ? [NSKeyedUnarchiver unarchiveObjectWithData:colorData] : [UIColor systemBackgroundColor];
+    self.backgroundColorView.backgroundColor = savedColor;
+    [self.view insertSubview:self.backgroundColorView atIndex:0];
 }
 
 - (void)setupBlurEffect {
-    BOOL isDarkMode = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
-
-    // 创建毛玻璃效果
-    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:isDarkMode ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
+    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial];
     self.blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
     self.blurEffectView.frame = self.view.bounds;
     self.blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self.view addSubview:self.blurEffectView];
+    self.blurEffectView.alpha = 0.5;
+    [self.view insertSubview:self.blurEffectView aboveSubview:self.backgroundColorView];
     
-    // 创建振动效果
-    UIVibrancyEffect *vibrancyEffect = [UIVibrancyEffect effectForBlurEffect:blurEffect];
-    self.vibrancyEffectView = [[UIVisualEffectView alloc] initWithEffect:vibrancyEffect];
-    self.vibrancyEffectView.frame = self.blurEffectView.bounds;
-    self.vibrancyEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self.blurEffectView.contentView addSubview:self.vibrancyEffectView];
-    
-    // 添加一个覆盖层
-    UIView *overlayView = [[UIView alloc] initWithFrame:self.view.bounds];
-    overlayView.backgroundColor = isDarkMode ? [UIColor colorWithWhite:0 alpha:0.3] : [UIColor colorWithWhite:1 alpha:0.3];
-    overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self.view addSubview:overlayView];
+    if (self.tableView) {
+        @try {
+            [self.tableView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
+            self.isKVOAdded = YES;
+            NSLog(@"DYYYSettingViewController KVO added");
+        } @catch (NSException *exception) {
+            NSLog(@"DYYYSettingViewController KVO addition failed: %@", exception);
+        }
+    }
 }
 
-- (void)setupTableView {
-    BOOL isDarkMode = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
-
-    self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleInsetGrouped];
-    self.tableView.delegate = self;
-    self.tableView.dataSource = self;
-    
-    // 设置表格背景颜色
-    self.tableView.backgroundColor = [UIColor clearColor];
-    
-    // 设置分隔线颜色为灰色 50%
-    self.tableView.separatorColor = [UIColor colorWithWhite:0.5 alpha:1.0];
-    
-    self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
-    self.tableView.contentInset = UIEdgeInsetsMake(20, 0, 0, 0);
-    self.tableView.sectionHeaderTopPadding = 0;
-    
-    // 设置表格单元格的默认字体颜色
-    self.tableView.tintColor = isDarkMode ? [UIColor whiteColor] : [UIColor blackColor];
-    
-    [self.view addSubview:self.tableView];
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    if ([keyPath isEqualToString:@"contentOffset"] && object == self.tableView) {
+        CGFloat offset = self.tableView.contentOffset.y;
+        self.blurEffectView.alpha = MIN(1.0, MAX(0.5, offset / 200.0));
+    }
 }
 
 - (void)setupSettingItems {
