@@ -93,7 +93,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupAppearance {
-    self.navigationController.navigationBar.barTintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.5]; // 设置导航栏背景为白色，透明度50%
+    self.navigationController.navigationBar.barTintColor = [[UIColor whiteColor] colorWithAlphaComponent:1]; // 设置导航栏背景为白色，透明度50%
     self.navigationController.navigationBar.tintColor = [UIColor blackColor]; // 设置导航栏按钮颜色为黑色
     self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor blackColor]}; // 设置大标题字体颜色为黑色
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
@@ -304,7 +304,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     self.footerLabel.text = [NSString stringWithFormat:@"Developer By @huamidev\nVersion: %@ (%@)", @"2.2-4", @"2503End"];
     self.footerLabel.textAlignment = NSTextAlignmentCenter;
     self.footerLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
-    self.footerLabel.textColor = [UIColor colorWithRed:190/255.0 green:190/255.0 blue:190/255.0 alpha:1.0];
+    self.footerLabel.textColor = [UIColor colorWithRed:105/255.0 green:105/255.0 blue:105/255.0 alpha:1.0];
     self.footerLabel.numberOfLines = 2;
     self.footerLabel.lineBreakMode = NSLineBreakByWordWrapping;
     self.tableView.tableFooterView = self.footerLabel;
@@ -428,7 +428,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     
     UIImageView *arrowImageView = [[UIImageView alloc] initWithFrame:CGRectMake(titleLabel.frame.origin.x + titleLabel.frame.size.width - 30, 15, 14, 14)];
     arrowImageView.image = [UIImage systemImageNamed:[self.expandedSections containsObject:@(section)] ? @"chevron.down" : @"chevron.right"];
-    arrowImageView.tintColor = [UIColor grayColor];
+    arrowImageView.tintColor = [UIColor blackColor];
     arrowImageView.tag = 100;
     arrowImageView.contentMode = UIViewContentModeScaleAspectFit;
     [headerView addSubview:arrowImageView];
