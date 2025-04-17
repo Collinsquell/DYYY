@@ -1,5 +1,4 @@
 #import "DYYYSettingViewController.h"
-#import <Photos/Photos.h>
 
 typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     DYYYSettingItemTypeSwitch,
@@ -94,7 +93,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupAppearance {
-    self.navigationController.navigationBar.barTintColor = [UIColor colorWithWhite:1 alpha:1]; // 设置导航栏背景为白色，透明度50%
+    self.navigationController.navigationBar.barTintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.5]; // 设置导航栏背景为白色，透明度50%
     self.navigationController.navigationBar.tintColor = [UIColor blackColor]; // 设置导航栏按钮颜色为黑色
     self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor blackColor]}; // 设置大标题字体颜色为黑色
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
@@ -297,7 +296,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupSectionTitles {
-    self.sectionTitles = [@[@"基本设置", @"界面设置", @"隐藏设置", @"顶栏移除", @"功能设置", @"悬浮按钮", @"自定背景"] mutableCopy];
+    self.sectionTitles = [@[@"基本设置", @"界面设置", @"隐藏设置", @"顶栏移除", @"功能设置", @"悬浮按钮"] mutableCopy];
 }
 
 - (void)setupFooterLabel {
@@ -305,44 +304,12 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     self.footerLabel.text = [NSString stringWithFormat:@"Developer By @huamidev\nVersion: %@ (%@)", @"2.2-4", @"2503End"];
     self.footerLabel.textAlignment = NSTextAlignmentCenter;
     self.footerLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
-    self.footerLabel.textColor = [UIColor colorWithRed:105/255.0 green:105/255.0 blue:105/255.0 alpha:1.0];
+    self.footerLabel.textColor = [UIColor colorWithRed:190/255.0 green:190/255.0 blue:190/255.0 alpha:1.0];
     self.footerLabel.numberOfLines = 2;
     self.footerLabel.lineBreakMode = NSLineBreakByWordWrapping;
     self.tableView.tableFooterView = self.footerLabel;
 }
 
-#pragma mark - Avatar Handling
-- (void)avatarTapped:(UITapGestureRecognizer *)gesture {
-    [self openImagePickerForType:@"avatar"];
-}
-
-- (void)openImagePickerForType:(NSString *)type {
-    UIImagePickerController *picker = [[UIImagePickerController alloc] init];
-    picker.delegate = self;
-    picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-    picker.allowsEditing = YES;
-    picker.view.tag = [type isEqualToString:@"avatar"] ? 1 : 2; // 1: 头像, 2: 背景图
-    [self presentViewController:picker animated:YES completion:nil];
-}
-
-- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> *)info {
-    UIImage *selectedImage = info[UIImagePickerControllerEditedImage] ?: info[UIImagePickerControllerOriginalImage];
-    if (selectedImage) {
-        if (picker.view.tag == 1) { // 头像
-            // 更新头像
-            UIImageView *avatarImageView = [self.tableView headerViewForSection:0].subviews.firstObject;
-            avatarImageView.image = selectedImage;
-        } else if (picker.view.tag == 2) { // 背景图
-            // 更新背景图
-            self.view.backgroundColor = [UIColor colorWithPatternImage:selectedImage];
-        }
-    }
-    [picker dismissViewControllerAnimated:YES completion:nil];
-}
-
-- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
-    [picker dismissViewControllerAnimated:YES completion:nil];
-}
 
 - (void)addTitleGradientAnimation {
     CAGradientLayer *gradient = [CAGradientLayer layer];
@@ -445,40 +412,23 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
             return @"功能设置";
         case 5:
             return @"悬浮按钮";
-        case 6:
-            return @"自定背景";    
         default:
             return @"";
     }
 }
 
 - (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
-    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 100)];
+    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 44)];
     
-    if (section == 0) {
-        // 添加圆形头像
-        UIImageView *avatarImageView = [[UIImageView alloc] initWithFrame:CGRectMake((headerView.bounds.size.width - 80) / 2, 10, 80, 80)];
-        avatarImageView.layer.cornerRadius = 40;
-        avatarImageView.clipsToBounds = YES;
-        avatarImageView.contentMode = UIViewContentModeScaleAspectFill;
-        avatarImageView.backgroundColor = [UIColor systemGray4Color];
-        avatarImageView.image = [UIImage imageNamed:@"defaultAvatar"]; // 默认头像
-        avatarImageView.userInteractionEnabled = YES;
-        UITapGestureRecognizer *avatarTapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(avatarTapped:)];
-        [avatarImageView addGestureRecognizer:avatarTapGesture];
-        [headerView addSubview:avatarImageView];
-    }
-    
-    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 80, headerView.bounds.size.width - 30, 20)];
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 0, headerView.bounds.size.width - 50, 44)];
     titleLabel.text = [self tableView:tableView titleForHeaderInSection:section];
     titleLabel.textColor = [UIColor blackColor];
     titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
-    titleLabel.textAlignment = NSTextAlignmentCenter;
     [headerView addSubview:titleLabel];
     
-    UIImageView *arrowImageView = [[UIImageView alloc] initWithFrame:CGRectMake(titleLabel.frame.origin.x + titleLabel.frame.size.width - 30, 85, 14, 14)];
+    UIImageView *arrowImageView = [[UIImageView alloc] initWithFrame:CGRectMake(titleLabel.frame.origin.x + titleLabel.frame.size.width - 30, 15, 14, 14)];
     arrowImageView.image = [UIImage systemImageNamed:[self.expandedSections containsObject:@(section)] ? @"chevron.down" : @"chevron.right"];
-    arrowImageView.tintColor = [UIColor lightGrayColor];
+    arrowImageView.tintColor = [UIColor grayColor];
     arrowImageView.tag = 100;
     arrowImageView.contentMode = UIViewContentModeScaleAspectFit;
     [headerView addSubview:arrowImageView];
@@ -493,7 +443,7 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
-    return section == 0 ? 100 : 44; // 第一组增加高度
+    return 44;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -585,13 +535,9 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     DYYYSettingItem *item = self.settingSections[indexPath.section][indexPath.row];
-    
     if (item.type == DYYYSettingItemTypeSpeedPicker) {
         [self showSpeedPicker];
-    } else if (indexPath.section == 6) { // 自定背景分组
-        [self openImagePickerForType:@"background"];
     }
-    
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
