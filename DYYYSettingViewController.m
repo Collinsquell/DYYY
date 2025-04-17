@@ -316,13 +316,6 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     [self openImagePickerForType:@"avatar"];
 }
 
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == 6) { // 自定背景分组
-        [self openImagePickerForType:@"background"];
-    }
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-}
-
 - (void)openImagePickerForType:(NSString *)type {
     UIImagePickerController *picker = [[UIImagePickerController alloc] init];
     picker.delegate = self;
@@ -592,9 +585,13 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     DYYYSettingItem *item = self.settingSections[indexPath.section][indexPath.row];
+    
     if (item.type == DYYYSettingItemTypeSpeedPicker) {
         [self showSpeedPicker];
+    } else if (indexPath.section == 6) { // 自定背景分组
+        [self openImagePickerForType:@"background"];
     }
+    
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
