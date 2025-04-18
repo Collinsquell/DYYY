@@ -123,8 +123,8 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     [self.view addSubview:overlayView];
     
     // 调整标题栏底部覆盖层颜色，使其更适配浅色风格
-    UIView *titleOverlayView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 100)];
-    titleOverlayView.backgroundColor = [UIColor colorWithWhite:1 alpha:0.5]; 
+    UIView *titleOverlayView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 50)];
+    titleOverlayView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.5]; 
     titleOverlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.view addSubview:titleOverlayView];
 }
