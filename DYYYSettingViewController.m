@@ -92,18 +92,13 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
     }
 }
 
+   //设置导航栏外观样式
 - (void)setupAppearance {
-    self.navigationController.navigationBar.barTintColor = [[UIColor whiteColor] colorWithAlphaComponent:1]; // 设置导航栏背景为白色，透明度50%
-    self.navigationController.navigationBar.tintColor = [UIColor blackColor]; // 设置导航栏按钮颜色为黑色
-    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor blackColor]}; // 设置大标题字体颜色为黑色
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-
-    // 添加导航栏分割线
-    UIView *separator = [[UIView alloc] initWithFrame:CGRectMake(0, self.navigationController.navigationBar.frame.size.height - 0.5, self.navigationController.navigationBar.frame.size.width, 0.5)];
-    separator.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.5]; // 设置分割线为灰色，透明度50%
-    separator.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
-    [self.navigationController.navigationBar addSubview:separator];
+    self.navigationController.navigationBar.barTintColor = [UIColor clearColor];// 导航栏的背景颜色为透明
+    self.navigationController.navigationBar.tintColor = [UIColor whiteColor];// 导航栏上图标的颜色为白色
+    self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName: [UIColor whiteColor]};// 导航栏大标题的文本颜色为白色
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;// 始终显示大标题
+    self.navigationController.navigationBar.prefersLargeTitles = YES;// 显示大标题
 }
 
 - (void)setupBlurEffect {
