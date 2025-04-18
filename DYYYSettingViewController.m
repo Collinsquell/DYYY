@@ -102,22 +102,31 @@ typedef NS_ENUM(NSInteger, DYYYSettingItemType) {
 }
 
 - (void)setupBlurEffect {
-    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight]; // 使用浅色毛玻璃效果
+    // 修改为浅色毛玻璃效果
+    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     self.blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
     self.blurEffectView.frame = self.view.bounds;
     self.blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.blurEffectView];
     
+    // 基于浅色模糊效果创建振动效果
     UIVibrancyEffect *vibrancyEffect = [UIVibrancyEffect effectForBlurEffect:blurEffect];
     self.vibrancyEffectView = [[UIVisualEffectView alloc] initWithEffect:vibrancyEffect];
     self.vibrancyEffectView.frame = self.blurEffectView.bounds;
     self.vibrancyEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.blurEffectView.contentView addSubview:self.vibrancyEffectView];
     
+    // 调整全局半透明覆盖层颜色，使其更适配浅色风格
     UIView *overlayView = [[UIView alloc] initWithFrame:self.view.bounds];
     overlayView.backgroundColor = [UIColor colorWithWhite:1 alpha:0.3];
     overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:overlayView];
+    
+    // 调整标题栏底部覆盖层颜色，使其更适配浅色风格
+    UIView *titleOverlayView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 100)];
+    titleOverlayView.backgroundColor = [UIColor colorWithWhite:1 alpha:0.5]; 
+    titleOverlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.view addSubview:titleOverlayView];
 }
 
 - (void)setupTableView {
